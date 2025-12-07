@@ -3,7 +3,7 @@ import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, Fo
 import { db } from '../services/mockDb';
 import { 
   Search, Plus, Trash2, User, Truck, ShoppingBag, 
-  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit
+  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit, AlertCircle, RefreshCcw
 } from 'lucide-react';
 
 // Helper for accent-insensitive search
@@ -14,6 +14,7 @@ const normalizeText = (text: string) => {
 const POS: React.FC = () => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [orders, setOrders] = useState<Pedido[]>([]);
+  const [filterStatus, setFilterStatus] = useState<'Todos' | PedidoStatus>('Todos');
   
   // --- Data Source State ---
   const [availableProducts, setAvailableProducts] = useState<Produto[]>([]);
@@ -81,7 +82,7 @@ const POS: React.FC = () => {
           }
         }
         if (e.key === 'Escape' && !isPaymentModalOpen && !isClientModalOpen && !isProductModalOpen && !isAddonModalOpen) {
-           handleCancelOrder();
+           handleCancelForm();
         }
       }
     };
@@ -214,11 +215,11 @@ const POS: React.FC = () => {
     setIsClientModalOpen(false);
   };
 
-  // --- SAVE ACTIONS ---
+  // --- ACTIONS ---
 
   // 1. Save as Pending (For Delivery/Encomenda)
   const handleSavePendingOrder = () => {
-    if (cart.length === 0) {
+    if (cart.length === 0 && currentOrderStatus !== PedidoStatus.Cancelado) {
         alert("O pedido precisa ter pelo menos um item.");
         return;
     }
@@ -237,9 +238,9 @@ const POS: React.FC = () => {
         clienteId: selectedClient?.id,
         clienteNome: selectedClient?.nome || 'Consumidor Final',
         total: total,
-        status: existingPayments.length > 0 ? currentOrderStatus : PedidoStatus.Pendente, // Trust current calculated status or keep pendente
+        status: existingPayments.length > 0 ? currentOrderStatus : PedidoStatus.Pendente, 
         itens: cart,
-        pagamentos: existingPayments // preserve payments
+        pagamentos: existingPayments 
     };
 
     db.savePedido(pedido);
@@ -391,7 +392,51 @@ const POS: React.FC = () => {
      }
   };
 
-  const handleCancelOrder = () => {
+  // 4. Void Payment (Estorno)
+  const handleVoidPayment = (paymentId: string, amount: number) => {
+      if (!editingOrderId) return;
+      
+      if (confirm(`ATENÇÃO: Deseja estornar/cancelar este recebimento de R$ ${amount.toFixed(2)}?\nIsso lançará uma saída no caixa e o pedido voltará a ficar pendente.`)) {
+          try {
+              db.cancelPagamento(editingOrderId, paymentId);
+              refreshData();
+              
+              // Refresh Local State
+              const updatedOrder = db.getPedidoById(editingOrderId);
+              if (updatedOrder) {
+                  setExistingPayments(updatedOrder.pagamentos);
+                  setCurrentOrderStatus(updatedOrder.status);
+              }
+              alert("Pagamento estornado com sucesso.");
+          } catch (e) {
+              alert("Erro ao estornar pagamento.");
+          }
+      }
+  };
+
+  // 5. Cancel Full Order
+  const handleCancelFullOrder = () => {
+      if (!editingOrderId) return;
+
+      if (confirm("Deseja CANCELAR este atendimento totalmente?\nIsso mudará o status para Cancelado.")) {
+          // If there are payments, we should strictly warn or handle them.
+          // For now, we allow canceling, but ideally one should void payments first.
+          // In this simplified version, we just mark as Cancelled.
+          const currentOrder = db.getPedidoById(editingOrderId);
+          if (currentOrder) {
+              const pedido: Pedido = {
+                  ...currentOrder,
+                  status: PedidoStatus.Cancelado
+              };
+              db.savePedido(pedido);
+              refreshData();
+              setView('list');
+              alert("Atendimento cancelado com sucesso.");
+          }
+      }
+  };
+
+  const handleCancelForm = () => {
     setView('list');
   };
 
@@ -444,6 +489,12 @@ const POS: React.FC = () => {
     normalizeText(c.telefone).includes(normalizeText(modalClientSearch))
   );
 
+  // List Filter Logic
+  const ordersListFiltered = orders.filter(o => {
+     if (filterStatus === 'Todos') return true;
+     return o.status === filterStatus;
+  });
+
   const calculateCartTotal = () => {
     return cart.reduce((acc, item) => {
         let itemTotal = item.produto.preco * item.quantidade;
@@ -467,7 +518,6 @@ const POS: React.FC = () => {
   const selectedMethodObj = paymentMethods.find(p => p.id === selectedPaymentMethodId);
   const isCashPayment = selectedMethodObj?.nome.toLowerCase().includes('dinheiro');
   
-  // Change calculation purely for visual aid in the modal
   const inputValueFloat = parseFloat(paymentInputValue) || 0;
   const potentialChange = (isCashPayment && inputValueFloat > remainingTotal) ? inputValueFloat - remainingTotal : 0;
 
@@ -482,12 +532,27 @@ const POS: React.FC = () => {
 
   // Render Action Buttons based on Logic
   const renderActionButtons = () => {
+     if (currentOrderStatus === PedidoStatus.Cancelado) {
+        return (
+            <div className="bg-red-100 text-red-800 px-3 py-1 rounded text-sm font-bold flex items-center gap-2">
+                <AlertCircle size={16}/> ATENDIMENTO CANCELADO
+            </div>
+        )
+     }
+
      // Scenario 1: Quick Sale (Always Immediate)
      if (currentOrderType === TipoAtendimento.VendaRapida) {
          return (
-            <button onClick={handleInitiatePayment} className="px-4 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm">
-                <Banknote size={18} /> Finalizar / Pagamento (F5)
-            </button>
+            <div className="flex gap-2">
+                 {editingOrderId && (
+                     <button onClick={handleCancelFullOrder} className="px-4 py-1.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 flex items-center gap-2 shadow-sm">
+                        <Trash2 size={18} /> Cancelar Pedido
+                     </button>
+                 )}
+                 <button onClick={handleInitiatePayment} className="px-4 py-1.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm">
+                    <Banknote size={18} /> Finalizar / Pagamento (F5)
+                </button>
+            </div>
          )
      }
 
@@ -495,6 +560,9 @@ const POS: React.FC = () => {
      if (editingOrderId && currentOrderStatus === PedidoStatus.Pendente) {
          return (
              <div className="flex gap-2">
+                 <button onClick={handleCancelFullOrder} className="px-4 py-1.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 flex items-center gap-2 shadow-sm">
+                    <Trash2 size={18} /> Cancelar Pedido
+                 </button>
                  <button onClick={handleSavePendingOrder} className="px-4 py-1.5 bg-yellow-500 text-white text-sm font-bold rounded-lg hover:bg-yellow-600 flex items-center gap-2 shadow-sm">
                     <Save size={18} /> Salvar Alterações
                  </button>
@@ -517,8 +585,14 @@ const POS: React.FC = () => {
 
      if (currentOrderStatus === PedidoStatus.Pago) {
          return (
-            <div className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm font-bold flex items-center gap-2">
-                <CheckSquare size={16}/> Pedido Pago / Fechado
+            <div className="flex gap-2 items-center">
+                <div className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm font-bold flex items-center gap-2">
+                    <CheckSquare size={16}/> Pedido Pago / Fechado
+                </div>
+                {/* Allow cancellation even if paid, though logic might need refund handling in real world */}
+                <button onClick={handleCancelFullOrder} className="px-3 py-1 bg-red-100 text-red-600 text-xs font-bold rounded hover:bg-red-200 border border-red-200">
+                     Cancelar
+                 </button>
             </div>
          )
      }
@@ -548,8 +622,24 @@ const POS: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px] flex flex-col">
           <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
              <div className="flex gap-2">
-                <span className="px-3 py-1 bg-blue-600 text-white text-xs rounded-full font-bold">Todos</span>
-                <span className="px-3 py-1 bg-gray-200 text-gray-600 text-xs rounded-full font-bold cursor-pointer hover:bg-gray-300">Abertos</span>
+                {[
+                    { label: 'Todos', status: 'Todos' },
+                    { label: 'Pendentes / Abertos', status: PedidoStatus.Pendente },
+                    { label: 'Pagos', status: PedidoStatus.Pago },
+                    { label: 'Cancelados', status: PedidoStatus.Cancelado }
+                ].map(filter => (
+                    <button 
+                        key={filter.status}
+                        onClick={() => setFilterStatus(filter.status as any)}
+                        className={`px-3 py-1 text-xs rounded-full font-bold transition-colors ${
+                            filterStatus === filter.status 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                        }`}
+                    >
+                        {filter.label}
+                    </button>
+                ))}
              </div>
              <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Calendar size={16} /> <span>Hoje</span>
@@ -568,7 +658,7 @@ const POS: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {orders.map(order => {
+              {ordersListFiltered.map(order => {
                   const paid = order.pagamentos?.reduce((acc, p) => acc + p.valor, 0) || 0;
                   return (
                 <tr key={order.id} onClick={() => handleEditOrder(order)} className="hover:bg-blue-50 transition-colors cursor-pointer group">
@@ -595,9 +685,9 @@ const POS: React.FC = () => {
                   </td>
                 </tr>
               )})}
-              {orders.length === 0 && (
+              {ordersListFiltered.length === 0 && (
                 <tr>
-                   <td colSpan={7} className="p-10 text-center text-gray-400">Nenhum atendimento encontrado hoje.</td>
+                   <td colSpan={7} className="p-10 text-center text-gray-400">Nenhum atendimento encontrado com este filtro.</td>
                 </tr>
               )}
             </tbody>
@@ -801,7 +891,7 @@ const POS: React.FC = () => {
         </div>
       )}
 
-      {/* Payment Modal Overlay (UPDATED FOR PARTIAL PAYMENTS) */}
+      {/* Payment Modal Overlay */}
       {isPaymentModalOpen && (
         <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
@@ -900,10 +990,10 @@ const POS: React.FC = () => {
         </h2>
         <div className="flex gap-2">
             <button 
-                onClick={handleCancelOrder} 
-                className="px-4 py-1.5 bg-red-100 text-red-700 text-sm font-bold rounded-lg hover:bg-red-200 flex items-center gap-2 border border-red-200 transition-colors"
+                onClick={handleCancelForm} 
+                className="px-4 py-1.5 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 flex items-center gap-2 border border-gray-200 transition-colors"
             >
-               <X size={18} /> Cancelar Atendimento
+               <X size={18} /> Voltar
             </button>
             {renderActionButtons()}
         </div>
@@ -935,12 +1025,12 @@ const POS: React.FC = () => {
                                     setClientSearch(e.target.value);
                                     setSelectedClient(null);
                                 }}
-                                disabled={currentOrderStatus === PedidoStatus.Pago}
+                                disabled={currentOrderStatus === PedidoStatus.Pago || currentOrderStatus === PedidoStatus.Cancelado}
                                 className={`w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none ${selectedClient ? 'bg-blue-50 border-blue-400 font-bold text-blue-800' : 'bg-white'}`}
                              />
                              <button 
                                 onClick={() => setIsClientModalOpen(true)}
-                                disabled={currentOrderStatus === PedidoStatus.Pago}
+                                disabled={currentOrderStatus === PedidoStatus.Pago || currentOrderStatus === PedidoStatus.Cancelado}
                                 className="px-3 bg-gray-200 rounded border border-gray-300 text-gray-600 hover:bg-gray-300 active:bg-gray-400 transition-colors disabled:opacity-50"
                                 title="Abrir busca avançada (F2)"
                              >
@@ -969,7 +1059,7 @@ const POS: React.FC = () => {
                         type="text" 
                         value={observation}
                         onChange={(e) => setObservation(e.target.value)}
-                        disabled={currentOrderStatus === PedidoStatus.Pago}
+                        disabled={currentOrderStatus === PedidoStatus.Pago || currentOrderStatus === PedidoStatus.Cancelado}
                         className="w-full border border-gray-300 rounded p-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100" 
                         placeholder="Observações do pedido..."
                     />
@@ -982,8 +1072,8 @@ const POS: React.FC = () => {
                      <div className="flex-1 flex gap-2">
                         <input 
                             type="text" 
-                            autoFocus={currentOrderStatus !== PedidoStatus.Pago}
-                            disabled={currentOrderStatus === PedidoStatus.Pago}
+                            autoFocus={currentOrderStatus !== PedidoStatus.Pago && currentOrderStatus !== PedidoStatus.Cancelado}
+                            disabled={currentOrderStatus === PedidoStatus.Pago || currentOrderStatus === PedidoStatus.Cancelado}
                             placeholder="Adicionar Produto (Nome ou Código)..." 
                             value={productSearch}
                             onChange={(e) => setProductSearch(e.target.value)}
@@ -991,7 +1081,7 @@ const POS: React.FC = () => {
                         />
                         <button 
                             onClick={() => setIsProductModalOpen(true)}
-                            disabled={currentOrderStatus === PedidoStatus.Pago}
+                            disabled={currentOrderStatus === PedidoStatus.Pago || currentOrderStatus === PedidoStatus.Cancelado}
                             className="px-4 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 flex items-center gap-2 text-sm disabled:opacity-50"
                         >
                             <Search size={16} /> Buscar
@@ -1066,7 +1156,7 @@ const POS: React.FC = () => {
                                         <input 
                                             type="number" 
                                             value={item.quantidade} 
-                                            disabled={currentOrderStatus === PedidoStatus.Pago}
+                                            disabled={currentOrderStatus === PedidoStatus.Pago || currentOrderStatus === PedidoStatus.Cancelado}
                                             onChange={(e) => {
                                                 const val = parseInt(e.target.value);
                                                 if(val > 0) {
@@ -1079,7 +1169,7 @@ const POS: React.FC = () => {
                                     <td className="p-2 text-sm text-right text-gray-600">R$ {item.produto.preco.toFixed(2)}</td>
                                     <td className="p-2 text-sm font-bold text-right text-blue-700">R$ {lineTotal.toFixed(2)}</td>
                                     <td className="p-2 text-center">
-                                        {currentOrderStatus !== PedidoStatus.Pago && (
+                                        {currentOrderStatus !== PedidoStatus.Pago && currentOrderStatus !== PedidoStatus.Cancelado && (
                                             <button onClick={() => handleRemoveItem(index)} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded">
                                                 <Trash2 size={16} />
                                             </button>
@@ -1107,7 +1197,7 @@ const POS: React.FC = () => {
         <div className="w-80 flex flex-col gap-4">
              <div className="bg-white p-6 rounded-lg shadow-sm h-32 flex flex-col justify-center items-end border border-gray-200">
                   <span className="text-gray-500 font-medium uppercase text-xs mb-1">Total Líquido</span>
-                  <span className="text-4xl font-extrabold text-blue-700">R$ {cartTotal.toFixed(2)}</span>
+                  <span className={`text-4xl font-extrabold ${currentOrderStatus === PedidoStatus.Cancelado ? 'text-gray-400 line-through' : 'text-blue-700'}`}>R$ {cartTotal.toFixed(2)}</span>
              </div>
 
              <div className="bg-white p-4 rounded-lg shadow-sm flex-1 border border-gray-200 space-y-2 flex flex-col">
@@ -1132,9 +1222,23 @@ const POS: React.FC = () => {
                     <div className="border-t border-gray-100 mt-2 pt-2">
                         <p className="text-xs font-bold text-gray-500 uppercase mb-2">Pagamentos Efetuados</p>
                         {existingPayments.map((p, idx) => (
-                            <div key={idx} className="flex justify-between text-xs text-green-700 mb-1">
-                                <span>{p.formaPagamentoNome}</span>
-                                <span>R$ {p.valor.toFixed(2)}</span>
+                            <div key={idx} className="flex justify-between items-center text-xs text-green-700 mb-2 group bg-green-50 p-1.5 rounded">
+                                <div className="flex flex-col">
+                                    <span className="font-bold">{p.formaPagamentoNome}</span>
+                                    <span className="text-[10px] text-gray-500">{new Date(p.data).toLocaleTimeString()}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold">R$ {p.valor.toFixed(2)}</span>
+                                    {(currentOrderStatus !== PedidoStatus.Cancelado) && (
+                                        <button 
+                                            onClick={() => handleVoidPayment(p.id, p.valor)}
+                                            className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Estornar / Cancelar Pagamento"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>

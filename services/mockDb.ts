@@ -121,7 +121,7 @@ class MockDbContext {
 
       // If fully paid (allowing for float precision), force status to Pago
       // This prevents the UI from accidentally reverting a Paid order to Pendente via the Save button
-      if (totalPaid >= (pedido.total - 0.01)) {
+      if (totalPaid >= (pedido.total - 0.01) && pedido.status !== PedidoStatus.Cancelado) {
           finalStatus = PedidoStatus.Pago;
       }
 
@@ -136,7 +136,7 @@ class MockDbContext {
     }
   }
 
-  // NEW: Handle Partial Payments
+  // Handle Partial Payments
   addPagamento(pedidoId: number, pagamento: Pagamento) {
     const pedido = this.pedidos.find(p => p.id === pedidoId);
     if (!pedido) throw new Error("Pedido não encontrado");
@@ -160,11 +160,39 @@ class MockDbContext {
     if (totalPago >= (pedido.total - 0.01)) {
        pedido.status = PedidoStatus.Pago;
     } else {
-       // Only change to Pendente if it was Cancelled? 
-       // Usually we keep it Pendente if it was already Pendente.
-       if(pedido.status !== PedidoStatus.Pago) {
+       if(pedido.status !== PedidoStatus.Pago && pedido.status !== PedidoStatus.Cancelado) {
          pedido.status = PedidoStatus.Pendente;
        }
+    }
+  }
+
+  // NEW: Void/Cancel Payment
+  cancelPagamento(pedidoId: number, pagamentoId: string) {
+    const pedido = this.pedidos.find(p => p.id === pedidoId);
+    if (!pedido) throw new Error("Pedido não encontrado");
+
+    const pagamento = pedido.pagamentos.find(p => p.id === pagamentoId);
+    if (!pagamento) throw new Error("Pagamento não encontrado");
+
+    // 1. Create Reversal Movement (Sangria or Negative Sale)
+    this.addMovimento({
+      id: Math.floor(Math.random() * 1000000),
+      data: new Date().toISOString(),
+      tipoOperacao: TipoOperacaoCaixa.Sangria, // Use Sangria as 'Reversal' for simplicity in this mock
+      valor: pagamento.valor,
+      observacao: `ESTORNO Recebimento Pedido #${pedido.id} - ${pagamento.formaPagamentoNome}`
+    });
+
+    // 2. Remove Payment from Order
+    pedido.pagamentos = pedido.pagamentos.filter(p => p.id !== pagamentoId);
+
+    // 3. Recalculate Status
+    const totalPago = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
+    if (totalPago < (pedido.total - 0.01)) {
+        // If it was Pago, it goes back to Pendente
+        if (pedido.status === PedidoStatus.Pago) {
+            pedido.status = PedidoStatus.Pendente;
+        }
     }
   }
 
