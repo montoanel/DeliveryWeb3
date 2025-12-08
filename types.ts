@@ -139,7 +139,8 @@ export interface Caixa {
 
 export enum StatusSessao {
   Aberta = 'Aberta',
-  Fechada = 'Fechada'
+  Fechada = 'Fechada',      // Fechada pelo operador, aguardando conferência
+  Consolidada = 'Consolidada' // Conferida e finalizada pelo gerente
 }
 
 export interface ConferenciaFechamento {
@@ -160,11 +161,17 @@ export interface SessaoCaixa {
   usuarioNome: string;
   dataAbertura: string;
   dataFechamento?: string;
+  dataConsolidacao?: string;
+  
   saldoInicial: number;
-  saldoFinal?: number; // Calculated by system
-  quebraDeCaixa?: number; // Difference between calculated and counted
+  saldoFinalSistema?: number; // Calculado pelo sistema
+  saldoFinalInformado?: number; // Contado pelo operador
+  
+  quebraDeCaixa?: number; // Diferença Final
+  
   status: StatusSessao;
-  conferencia?: ConferenciaFechamento;
+  conferenciaOperador?: ConferenciaFechamento;
+  conferenciaAuditoria?: ConferenciaFechamento; // Valores corrigidos pela gerência
 }
 
 export interface CaixaMovimento {

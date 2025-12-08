@@ -2,13 +2,48 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { Usuario, SessaoCaixa, CaixaMovimento, TipoOperacaoCaixa, StatusSessao, ConferenciaFechamento, Caixa } from '../types';
-import { DollarSign, Lock, Unlock, AlertTriangle, TrendingUp, TrendingDown, History, Save, X } from 'lucide-react';
+import { DollarSign, Lock, Unlock, AlertTriangle, TrendingUp, TrendingDown, History, Save, X, ClipboardCheck, Eye } from 'lucide-react';
 
 interface CashControlProps {
   user: Usuario;
 }
 
 const CashControl: React.FC<CashControlProps> = ({ user }) => {
+  const [activeTab, setActiveTab] = useState<'my-cash' | 'audit'>('my-cash');
+
+  const isAdmin = user.perfil === 'Administrador';
+
+  return (
+    <div className="space-y-6">
+       {/* Tab Navigation (Visible only to Admin) */}
+       {isAdmin && (
+           <div className="flex gap-4 border-b border-gray-200">
+               <button 
+                  onClick={() => setActiveTab('my-cash')}
+                  className={`pb-3 px-4 font-bold text-sm border-b-2 transition-colors ${activeTab === 'my-cash' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                   Meu Caixa Atual
+               </button>
+               <button 
+                  onClick={() => setActiveTab('audit')}
+                  className={`pb-3 px-4 font-bold text-sm border-b-2 transition-colors ${activeTab === 'audit' ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                   Conferência / Auditoria
+               </button>
+           </div>
+       )}
+
+       {activeTab === 'my-cash' ? (
+           <OperatorView user={user} />
+       ) : (
+           <AuditView user={user} />
+       )}
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: OPERATOR VIEW (Existing Logic) ---
+const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
   const [session, setSession] = useState<SessaoCaixa | undefined>(undefined);
   const [history, setHistory] = useState<CaixaMovimento[]>([]);
   const [saldo, setSaldo] = useState(0);
@@ -73,9 +108,8 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
       return;
     }
 
-    // If bleed, check balance?
     if (modalType === TipoOperacaoCaixa.Sangria && val > saldo) {
-        if(!confirm("O valor da sangria é maior que o saldo atual calculad. Continuar?")) return;
+        if(!confirm("O valor da sangria é maior que o saldo atual calculado. Continuar?")) return;
     }
 
     db.lancarMovimento(session.id, modalType, val, opObs);
@@ -95,7 +129,7 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
              db.fecharSessao(session.id, closingValues);
              setIsClosing(false);
              loadData();
-             alert("Caixa fechado com sucesso.");
+             alert("Caixa fechado com sucesso. Aguardando conferência da gerência.");
         } catch(e: any) {
             alert(e.message);
         }
@@ -116,10 +150,9 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
 
   if (loading) return <div className="p-8 text-center text-gray-500">Carregando...</div>;
 
-  // NO SESSION - SHOW OPEN FORM
   if (!session) {
     return (
-      <div className="max-w-md mx-auto mt-10">
+      <div className="max-w-md mx-auto mt-10 animate-in fade-in zoom-in duration-300">
         <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
            <div className="text-center mb-6">
                <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -170,9 +203,9 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
     );
   }
 
-  // ACTIVE SESSION
+  // ACTIVE SESSION UI (Same as before)
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
       
       {/* Overview Card */}
       <div className="lg:col-span-1 space-y-6">
@@ -428,9 +461,188 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
               </div>
           </div>
       )}
-
     </div>
   );
+};
+
+// --- SUB-COMPONENT: AUDIT VIEW (New Logic) ---
+const AuditView: React.FC<{ user: Usuario }> = ({ user }) => {
+    const [closedSessions, setClosedSessions] = useState<SessaoCaixa[]>([]);
+    const [selectedSession, setSelectedSession] = useState<SessaoCaixa | null>(null);
+    const [auditValues, setAuditValues] = useState<ConferenciaFechamento | null>(null);
+
+    const loadSessions = () => {
+        setClosedSessions(db.getSessoesFechadas());
+    };
+
+    useEffect(() => {
+        loadSessions();
+    }, []);
+
+    const handleSelectSession = (s: SessaoCaixa) => {
+        setSelectedSession(s);
+        // Start Audit with User's values
+        setAuditValues(s.conferenciaOperador || {
+             dinheiro: 0, cartaoCredito: 0, cartaoDebito: 0, pix: 0, voucher: 0, outros: 0, observacoes: ''
+        });
+    };
+
+    const handleConsolidate = () => {
+        if (!selectedSession || !auditValues) return;
+        if (confirm("Confirmar a consolidação deste caixa? Esta ação é irreversível.")) {
+            try {
+                db.consolidarSessao(selectedSession.id, auditValues);
+                alert("Caixa consolidado com sucesso!");
+                setSelectedSession(null);
+                setAuditValues(null);
+                loadSessions();
+            } catch (e: any) {
+                alert(e.message);
+            }
+        }
+    };
+
+    // Helper to compare values rows
+    const renderComparisonRow = (label: string, field: keyof ConferenciaFechamento, systemVal: number = 0) => {
+        if (!selectedSession || !auditValues) return null;
+        const operatorVal = (selectedSession.conferenciaOperador as any)[field] as number;
+        const auditVal = (auditValues as any)[field] as number;
+        const diff = auditVal - systemVal; // Based on final audit
+
+        return (
+            <tr className="border-b border-gray-50 hover:bg-gray-50">
+                <td className="p-3 text-sm text-gray-700">{label}</td>
+                <td className="p-3 text-sm font-bold text-gray-500 text-right">R$ {systemVal.toFixed(2)}</td>
+                <td className="p-3 text-sm font-bold text-blue-600 text-right">R$ {operatorVal.toFixed(2)}</td>
+                <td className="p-3 text-right">
+                    <input 
+                        type="number" step="0.01"
+                        value={auditVal}
+                        onChange={(e) => setAuditValues({...auditValues, [field]: parseFloat(e.target.value) || 0})}
+                        className="w-24 p-1 border border-purple-300 rounded text-right font-bold text-purple-700 outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                </td>
+                <td className={`p-3 text-sm font-bold text-right ${diff === 0 ? 'text-gray-400' : diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {diff > 0 ? '+' : ''} R$ {diff.toFixed(2)}
+                </td>
+            </tr>
+        );
+    };
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
+            {/* List of Closed Sessions */}
+            <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[600px]">
+                <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-700 flex justify-between items-center">
+                    <span>Caixas Fechados (Aguardando)</span>
+                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">{closedSessions.length}</span>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    {closedSessions.map(s => (
+                        <div 
+                            key={s.id} 
+                            onClick={() => handleSelectSession(s)}
+                            className={`p-4 border-b border-gray-100 cursor-pointer transition-colors hover:bg-purple-50 ${selectedSession?.id === s.id ? 'bg-purple-50 border-l-4 border-l-purple-600' : ''}`}
+                        >
+                            <div className="flex justify-between mb-1">
+                                <span className="font-bold text-gray-800">#{s.id} - {s.caixaNome}</span>
+                                <span className="text-xs text-gray-500">{new Date(s.dataFechamento!).toLocaleTimeString()}</span>
+                            </div>
+                            <div className="text-sm text-gray-600 mb-2">Op: {s.usuarioNome}</div>
+                            <div className="flex justify-between items-center">
+                                <div className={`text-xs font-bold px-2 py-1 rounded ${s.quebraDeCaixa === 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    Dif: R$ {s.quebraDeCaixa?.toFixed(2)}
+                                </div>
+                                <div className="text-purple-600 flex items-center gap-1 text-xs font-bold">
+                                    <ClipboardCheck size={14} /> Conferir
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {closedSessions.length === 0 && (
+                         <div className="p-8 text-center text-gray-400 text-sm">Nenhum caixa aguardando conferência.</div>
+                    )}
+                </div>
+            </div>
+
+            {/* Audit Form */}
+            <div className="lg:col-span-2">
+                {selectedSession && auditValues ? (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-800">Consolidação de Caixa #{selectedSession.id}</h2>
+                            <div className="text-sm text-gray-500">
+                                Fechado em: {new Date(selectedSession.dataFechamento!).toLocaleString()}
+                            </div>
+                        </div>
+
+                        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6 text-sm text-yellow-800">
+                            <b>Instruções:</b> A coluna "Auditado" vem preenchida com o valor contado pelo operador. 
+                            Se houver divergência, corrija o valor nesta coluna. A diferença final será registrada como Quebra de Caixa.
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                                    <tr>
+                                        <th className="p-3 text-left">Tipo</th>
+                                        <th className="p-3 text-right">Sistema (Calc)</th>
+                                        <th className="p-3 text-right">Informado (Op)</th>
+                                        <th className="p-3 text-right text-purple-700">Auditado (Final)</th>
+                                        <th className="p-3 text-right">Diferença</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {/* We need to calculate System Values per Type. 
+                                        Since MockDB `getSaldoFormaPagamentoSessao` is not exposed fully or we need to calculate it here. 
+                                        Ideally, MockDB should provide a breakdown. 
+                                        For this demo, we will simulate System breakdown if not available, or assume System Total matches breakdowns for simplicity, 
+                                        or fetch it if we added the helper. I added `getSaldoFormaPagamentoSessao` to MockDB.
+                                    */}
+                                    {renderComparisonRow('Dinheiro', 'dinheiro', db.getSaldoDinheiroSessao(selectedSession.id))}
+                                    {renderComparisonRow('Cartão Crédito', 'cartaoCredito', db.getSaldoFormaPagamentoSessao(selectedSession.id, 2))}
+                                    {renderComparisonRow('Cartão Débito', 'cartaoDebito', db.getSaldoFormaPagamentoSessao(selectedSession.id, 3))}
+                                    {renderComparisonRow('PIX', 'pix', db.getSaldoFormaPagamentoSessao(selectedSession.id, 4))}
+                                    {renderComparisonRow('Voucher / Outros', 'voucher', db.getSaldoFormaPagamentoSessao(selectedSession.id, 5))}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div className="mt-6 border-t border-gray-100 pt-4">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Observações da Auditoria</label>
+                            <textarea 
+                                value={auditValues.observacoes}
+                                onChange={(e) => setAuditValues({...auditValues, observacoes: e.target.value})}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                                rows={2}
+                                placeholder="Justificativa da correção..."
+                            ></textarea>
+                        </div>
+
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button 
+                                onClick={() => setSelectedSession(null)}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={handleConsolidate}
+                                className="px-6 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 shadow-lg shadow-purple-200 flex items-center gap-2"
+                            >
+                                <ClipboardCheck size={18} /> Finalizar Consolidação
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                        <Eye size={48} className="mb-4 opacity-20"/>
+                        <p>Selecione um caixa fechado para auditar.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 };
 
 export default CashControl;

@@ -2,7 +2,7 @@
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
-  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro
+  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento
 } from '../types';
 
 class MockDB {
@@ -149,6 +149,20 @@ class MockDB {
           return acc;
       }, 0);
   }
+  
+  // Helper to calculate totals for a specific payment method in a session
+  getSaldoFormaPagamentoSessao(sessaoId: number, formaPagamentoId: number): number {
+      const movimentos = this.caixaMovimentos.filter(m => m.sessaoId === sessaoId && m.formaPagamentoId === formaPagamentoId);
+      return movimentos.reduce((acc, mov) => {
+          if (mov.tipoOperacao === TipoOperacaoCaixa.Vendas || mov.tipoOperacao === TipoOperacaoCaixa.CreditoCliente) {
+             return acc + mov.valor;
+          }
+           if (mov.tipoOperacao === TipoOperacaoCaixa.Troco || mov.tipoOperacao === TipoOperacaoCaixa.Sangria) {
+             return acc - mov.valor;
+          }
+          return acc;
+      }, 0);
+  }
 
   getVendasDoDia() {
       const today = new Date().toISOString().split('T')[0];
@@ -263,6 +277,11 @@ class MockDB {
       return this.sessoes.find(s => s.usuarioId === userId && s.status === StatusSessao.Aberta);
   }
 
+  getSessoesFechadas() {
+      // Returns sessions waiting for consolidation
+      return this.sessoes.filter(s => s.status === StatusSessao.Fechada).sort((a,b) => new Date(b.dataFechamento!).getTime() - new Date(a.dataFechamento!).getTime());
+  }
+
   getSaldoSessao(sessaoId: number): number {
     return this.caixaMovimentos
       .filter(m => m.sessaoId === sessaoId)
@@ -303,7 +322,7 @@ class MockDB {
       return novaSessao;
   }
   
-  fecharSessao(sessaoId: number, conferencia: any) {
+  fecharSessao(sessaoId: number, conferencia: ConferenciaFechamento) {
       const sessaoIndex = this.sessoes.findIndex(s => s.id === sessaoId);
       if(sessaoIndex < 0) throw new Error("Sessão não encontrada");
       
@@ -313,15 +332,38 @@ class MockDB {
       
       this.sessoes[sessaoIndex] = {
           ...sessao,
-          status: StatusSessao.Fechada,
+          status: StatusSessao.Fechada, // Aguarda consolidação
           dataFechamento: new Date().toISOString(),
-          saldoFinal: saldoFinalCalculado,
-          conferencia,
+          saldoFinalSistema: saldoFinalCalculado, // System Calculated
+          saldoFinalInformado: totalContado,      // User Counted
+          conferenciaOperador: conferencia,
           quebraDeCaixa: totalContado - saldoFinalCalculado
       };
       
-      // Closing zeros the logical balance for the session history
+      // Closing zeros the logical balance for the session history, but we record what system thinks it is
       this.lancarMovimento(sessaoId, TipoOperacaoCaixa.Fechamento, saldoFinalCalculado, 'Fechamento de Caixa');
+  }
+
+  consolidarSessao(sessaoId: number, conferenciaAuditada: ConferenciaFechamento) {
+      const sessaoIndex = this.sessoes.findIndex(s => s.id === sessaoId);
+      if(sessaoIndex < 0) throw new Error("Sessão não encontrada");
+      
+      const sessao = this.sessoes[sessaoIndex];
+      if (sessao.status !== StatusSessao.Fechada) {
+          throw new Error("Sessão não está pronta para consolidação ou já foi consolidada.");
+      }
+
+      // Re-calculate Diff based on Audited Values
+      const totalAuditado = conferenciaAuditada.dinheiro + conferenciaAuditada.cartaoCredito + conferenciaAuditada.cartaoDebito + conferenciaAuditada.pix + conferenciaAuditada.voucher + conferenciaAuditada.outros;
+      const diff = totalAuditado - (sessao.saldoFinalSistema || 0);
+
+      this.sessoes[sessaoIndex] = {
+          ...sessao,
+          status: StatusSessao.Consolidada,
+          dataConsolidacao: new Date().toISOString(),
+          conferenciaAuditoria: conferenciaAuditada,
+          quebraDeCaixa: diff // Final Diff
+      };
   }
   
   lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string, formaPagamentoId?: number) {
