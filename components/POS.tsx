@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento } from '../types';
 import { db } from '../services/mockDb';
 import { 
@@ -28,18 +29,37 @@ interface PrintableData {
 const PrintableReceipt = ({ data }: { data: PrintableData | null }) => {
     if (!data) return null;
 
-    return (
-        <div id="printable-content" className="hidden print:block fixed inset-0 bg-white z-[9999] p-4 text-black font-mono text-sm leading-tight">
+    // Use Portal to render outside #root, ensuring we can hide #root completely during print
+    return createPortal(
+        <div id="printable-content" className="fixed inset-0 bg-white z-[9999] p-4 text-black font-mono text-sm leading-tight">
             <style>{`
                 @media print {
-                    body * { visibility: hidden; }
-                    #printable-content, #printable-content * { visibility: visible; }
-                    #printable-content { position: absolute; left: 0; top: 0; width: 100%; height: auto; background: white; }
+                    /* Hide the main application root */
+                    #root { display: none !important; }
+                    
+                    /* Ensure this container is visible */
+                    #printable-content { 
+                        display: block !important; 
+                        position: fixed; 
+                        top: 0; 
+                        left: 0; 
+                        width: 100%; 
+                        height: 100%; 
+                        background: white; 
+                        z-index: 9999;
+                    }
+                    
+                    /* Reset page margins */
                     @page { margin: 0; size: auto; }
+                }
+                
+                /* Hide this container on screen */
+                @media screen {
+                    #printable-content { display: none !important; }
                 }
             `}</style>
             
-            <div className="max-w-[80mm] mx-auto border-b-2 border-dashed border-black pb-2 mb-2 text-center">
+            <div className="max-w-[80mm] mx-auto border-b-2 border-dashed border-black pb-2 mb-2 text-center pt-4">
                 <h1 className="text-xl font-bold uppercase">DeliverySys</h1>
                 <p className="text-xs">Rua Exemplo, 123 - Centro</p>
                 <p className="text-xs">CNPJ: 00.000.000/0001-00</p>
@@ -124,7 +144,8 @@ const PrintableReceipt = ({ data }: { data: PrintableData | null }) => {
                 <p>Obrigado pela preferência!</p>
                 <p>www.deliverysys.com.br</p>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
@@ -185,7 +206,7 @@ const POS: React.FC = () => {
   // Print Trigger
   useEffect(() => {
       if (printData) {
-          // Small delay to allow React to render the hidden print component
+          // Small delay to allow React Portal to render the print component in DOM
           const timer = setTimeout(() => {
               window.print();
               setPrintData(null); // Reset after printing
