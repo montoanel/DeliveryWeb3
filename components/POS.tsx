@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento, Usuario } from '../types';
+import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento, Usuario, Bairro } from '../types';
 import { db } from '../services/mockDb';
 import { 
   Search, Plus, Trash2, User, Truck, ShoppingBag, 
@@ -162,6 +162,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
   // --- Data Source State ---
   const [availableProducts, setAvailableProducts] = useState<Produto[]>([]);
   const [availableClients, setAvailableClients] = useState<Cliente[]>([]);
+  const [availableBairros, setAvailableBairros] = useState<Bairro[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<FormaPagamento[]>([]);
   const [addonConfigs, setAddonConfigs] = useState<ConfiguracaoAdicional[]>([]);
 
@@ -201,6 +202,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
     setOrders(db.getPedidos());
     setAvailableProducts(db.getProdutos());
     setAvailableClients(db.getClientes());
+    setAvailableBairros(db.getBairros());
     setPaymentMethods(db.getFormasPagamento().filter(f => f.ativo));
     setAddonConfigs(db.getConfiguracoesAdicionais());
   };
@@ -390,6 +392,37 @@ const POS: React.FC<POSProps> = ({ user }) => {
     setSelectedClient(client);
     setClientSearch('');
     setIsClientModalOpen(false);
+
+    // --- AUTOMATIC DELIVERY FEE LOGIC ---
+    if (currentOrderType === TipoAtendimento.Delivery && client.bairroId) {
+        const bairro = availableBairros.find(b => b.id === client.bairroId);
+        
+        // Remove previous Fee if exists to update
+        let newCart = cart.filter(item => item.produto.codigoInterno !== 'TAXA');
+
+        if (bairro && bairro.taxaEntrega > 0) {
+            // Create a virtual product for the Fee
+            const feeProduct: Produto = {
+                id: -999, // Special ID for fee
+                ativo: true,
+                tipo: 'Principal',
+                codigoInterno: 'TAXA',
+                codigoBarras: '',
+                nome: `Taxa de Entrega - ${bairro.nome}`,
+                preco: bairro.taxaEntrega,
+                custo: 0,
+                unidadeMedida: 'SV',
+                grupoProdutoId: 0
+            };
+            
+            // Add to cart
+            newCart.push({
+                produto: feeProduct,
+                quantidade: 1
+            });
+            setCart(newCart);
+        }
+    }
   };
 
   // --- PRINTING HANDLERS ---

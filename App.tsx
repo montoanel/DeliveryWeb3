@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
 import CashControl from './components/CashControl';
@@ -11,6 +11,7 @@ import PaymentMethods from './components/PaymentMethods';
 import AddonConfig from './components/AddonConfig';
 import UsersComponent from './components/Users';
 import Terminals from './components/Terminals';
+import Neighborhoods from './components/Neighborhoods';
 import Login from './components/Login';
 import { Usuario } from './types';
 
@@ -66,6 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             <SidebarLink to="/produtos" icon={Package} label={sidebarOpen ? "Produtos" : ""} />
             <SidebarLink to="/config-adicionais" icon={Layers} label={sidebarOpen ? "Config. Adicionais" : ""} />
             <SidebarLink to="/clientes" icon={Users} label={sidebarOpen ? "Clientes" : ""} />
+            <SidebarLink to="/bairros" icon={MapPin} label={sidebarOpen ? "Bairros / Taxas" : ""} />
             <SidebarLink to="/formas-pagamento" icon={CreditCard} label={sidebarOpen ? "Formas de Pagamento" : ""} />
             <SidebarLink to="/terminais" icon={Monitor} label={sidebarOpen ? "Terminais / Caixas" : ""} />
             <SidebarLink to="/usuarios" icon={UserCog} label={sidebarOpen ? "Usuários" : ""} />
@@ -135,6 +137,7 @@ const App: React.FC = () => {
           <Route path="/produtos" element={<Products />} />
           <Route path="/config-adicionais" element={<AddonConfig />} />
           <Route path="/clientes" element={<Clients />} />
+          <Route path="/bairros" element={<Neighborhoods />} />
           <Route path="/formas-pagamento" element={<PaymentMethods />} />
           <Route path="/terminais" element={<Terminals />} />
           <Route path="/usuarios" element={<UsersComponent />} />

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
-import { Cliente } from '../types';
+import { Cliente, Bairro } from '../types';
 import { Plus, Search, Edit2, Trash2, Save, X, User, MapPin, Phone, MessageCircle, Wallet } from 'lucide-react';
 
 // --- Validation Helpers ---
@@ -98,6 +98,7 @@ const maskPhone = (value: string) => {
 const Clients: React.FC = () => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [clients, setClients] = useState<Cliente[]>([]);
+  const [bairros, setBairros] = useState<Bairro[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   const initialFormState: Cliente = {
@@ -111,6 +112,7 @@ const Clients: React.FC = () => {
     numero: '',
     complemento: '',
     bairro: '',
+    bairroId: undefined,
     cep: '',
     cidade: '',
     saldoCredito: 0
@@ -124,6 +126,7 @@ const Clients: React.FC = () => {
 
   const loadData = () => {
     setClients(db.getClientes());
+    setBairros(db.getBairros());
   };
 
   const handleNew = () => {
@@ -152,7 +155,7 @@ const Clients: React.FC = () => {
     if (!formData.telefone.trim()) { alert("O Telefone é obrigatório."); return; }
     if (!formData.endereco.trim()) { alert("O Endereço (Rua) é obrigatório."); return; }
     if (!formData.numero.trim()) { alert("O Número do endereço é obrigatório."); return; }
-    if (!formData.bairro.trim()) { alert("O Bairro é obrigatório."); return; }
+    if (!formData.bairroId) { alert("O Bairro é obrigatório. Selecione um bairro da lista."); return; }
 
     const cleanDoc = formData.cpfCnpj.replace(/[^\d]+/g, '');
     
@@ -323,14 +326,25 @@ const Clients: React.FC = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Bairro <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
+              <select 
+                value={formData.bairroId || ''}
+                onChange={(e) => {
+                    const id = parseInt(e.target.value);
+                    const bairro = bairros.find(b => b.id === id);
+                    if(bairro) {
+                        setFormData({...formData, bairroId: id, bairro: bairro.nome});
+                    }
+                }}
                 required
-                value={formData.bairro}
-                onChange={(e) => setFormData({...formData, bairro: e.target.value})}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                placeholder="Centro"
-              />
+                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none bg-white"
+              >
+                  <option value="">Selecione o Bairro...</option>
+                  {bairros.map(b => (
+                      <option key={b.id} value={b.id}>
+                          {b.nome} {b.taxaEntrega > 0 ? `(+ R$ ${b.taxaEntrega.toFixed(2)})` : '(Grátis)'}
+                      </option>
+                  ))}
+              </select>
             </div>
           </div>
 

@@ -26,6 +26,13 @@ export enum PedidoStatus {
 }
 
 // Entities (Models)
+export interface Bairro {
+  id: number;
+  nome: string;
+  taxaEntrega: number;
+  ativo: boolean;
+}
+
 export interface Cliente {
   id: number;
   tipoPessoa: 'Física' | 'Jurídica';
@@ -39,6 +46,7 @@ export interface Cliente {
   numero: string;
   complemento: string;
   bairro: string;
+  bairroId?: number; // Link to Bairro entity
   cep?: string;
   cidade?: string;
 }

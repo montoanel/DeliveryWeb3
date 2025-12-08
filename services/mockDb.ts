@@ -2,7 +2,7 @@
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
-  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional
+  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro
 } from '../types';
 
 class MockDB {
@@ -16,6 +16,7 @@ class MockDB {
   private caixaMovimentos: CaixaMovimento[] = [];
   private formasPagamento: FormaPagamento[] = [];
   private configuracoesAdicionais: ConfiguracaoAdicional[] = [];
+  private bairros: Bairro[] = [];
 
   constructor() {
     this.seed();
@@ -37,7 +38,13 @@ class MockDB {
     this.caixas = [{ id: 1, nome: 'Caixa 01', ativo: true }];
     this.usuarios = [{ id: 1, nome: 'Administrador', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true }];
     this.configuracoesAdicionais = [];
-    this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', nomeWhatsapp: '', endereco: '', numero: '', complemento: '', bairro: '', saldoCredito: 0 }];
+    this.bairros = [
+        { id: 1, nome: 'Centro', taxaEntrega: 0.00, ativo: true },
+        { id: 2, nome: 'Zona Norte', taxaEntrega: 5.00, ativo: true },
+        { id: 3, nome: 'Zona Sul', taxaEntrega: 7.00, ativo: true },
+        { id: 4, nome: 'Industrial', taxaEntrega: 10.00, ativo: true },
+    ];
+    this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', nomeWhatsapp: '', endereco: '', numero: '', complemento: '', bairro: 'Centro', bairroId: 1, saldoCredito: 0 }];
   }
 
   // --- GETTERS ---
@@ -49,6 +56,7 @@ class MockDB {
   getCaixas() { return this.caixas; }
   getFormasPagamento() { return this.formasPagamento; }
   getConfiguracoesAdicionais() { return this.configuracoesAdicionais; }
+  getBairros() { return this.bairros; }
 
   getPedidoById(id: number) { return this.pedidos.find(p => p.id === id); }
 
@@ -163,6 +171,17 @@ class MockDB {
       }
   }
   deleteCaixa(id: number) { this.caixas = this.caixas.filter(p => p.id !== id); }
+  
+  saveBairro(item: Bairro) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.bairros.map(p => p.id)) + 1;
+          this.bairros.push(item);
+      } else {
+          const index = this.bairros.findIndex(p => p.id === item.id);
+          if(index >= 0) this.bairros[index] = item;
+      }
+  }
+  deleteBairro(id: number) { this.bairros = this.bairros.filter(p => p.id !== id); }
 
   savePedido(pedido: Pedido) {
       // Safety Check: Force status to Paid if amount is covered
