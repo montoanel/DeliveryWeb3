@@ -3,12 +3,129 @@ import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, Fo
 import { db } from '../services/mockDb';
 import { 
   Search, Plus, Trash2, User, Truck, ShoppingBag, 
-  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit, AlertCircle, RefreshCcw
+  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit, AlertCircle, RefreshCcw, Printer
 } from 'lucide-react';
 
 // Helper for accent-insensitive search
 const normalizeText = (text: string) => {
   return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+};
+
+// --- PRINTABLE RECEIPT COMPONENT ---
+interface PrintableData {
+    type: 'ORDER' | 'ITEM';
+    orderId: string | number;
+    date: string;
+    clientName: string;
+    clientAddress?: string;
+    deliveryType: string;
+    items: PedidoItem[]; // If ITEM type, this contains only the single item
+    total: number;
+    payments: Pagamento[];
+    obs?: string;
+}
+
+const PrintableReceipt = ({ data }: { data: PrintableData | null }) => {
+    if (!data) return null;
+
+    return (
+        <div id="printable-content" className="hidden print:block fixed inset-0 bg-white z-[9999] p-4 text-black font-mono text-sm leading-tight">
+            <style>{`
+                @media print {
+                    body * { visibility: hidden; }
+                    #printable-content, #printable-content * { visibility: visible; }
+                    #printable-content { position: absolute; left: 0; top: 0; width: 100%; height: auto; background: white; }
+                    @page { margin: 0; size: auto; }
+                }
+            `}</style>
+            
+            <div className="max-w-[80mm] mx-auto border-b-2 border-dashed border-black pb-2 mb-2 text-center">
+                <h1 className="text-xl font-bold uppercase">DeliverySys</h1>
+                <p className="text-xs">Rua Exemplo, 123 - Centro</p>
+                <p className="text-xs">CNPJ: 00.000.000/0001-00</p>
+                <p className="text-xs">{new Date(data.date).toLocaleString()}</p>
+            </div>
+
+            <div className="max-w-[80mm] mx-auto mb-2 border-b border-dashed border-black pb-2">
+                <p className="font-bold text-lg">#{data.orderId} - {data.deliveryType.toUpperCase()}</p>
+                <p>Cliente: {data.clientName}</p>
+                {data.clientAddress && <p className="text-xs">{data.clientAddress}</p>}
+                {data.type === 'ITEM' && <p className="font-bold mt-2 text-center text-lg border-2 border-black p-1">*** COZINHA / SEPARAÇÃO ***</p>}
+            </div>
+
+            <div className="max-w-[80mm] mx-auto mb-2 border-b border-dashed border-black pb-2">
+                <table className="w-full text-left">
+                    <thead>
+                        <tr className="text-xs border-b border-black">
+                            <th className="w-8">Qtd</th>
+                            <th>Item</th>
+                            {data.type === 'ORDER' && <th className="text-right">Total</th>}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.items.map((item, idx) => {
+                             const itemTotal = item.produto.preco * item.quantidade + (item.adicionais?.reduce((acc, a) => acc + (a.precoCobrado * item.quantidade), 0) || 0);
+                             return (
+                                <tr key={idx} className="align-top">
+                                    <td className="py-1 font-bold align-top">{item.quantidade}x</td>
+                                    <td className="py-1 align-top">
+                                        <div className="font-bold">{item.produto.nome}</div>
+                                        {item.adicionais && item.adicionais.length > 0 && (
+                                            <div className="text-xs pl-2 mt-0.5">
+                                                {item.adicionais.map((add, i) => (
+                                                    <div key={i}>+ {add.nome}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </td>
+                                    {data.type === 'ORDER' && (
+                                        <td className="py-1 text-right whitespace-nowrap align-top">
+                                            {itemTotal.toFixed(2)}
+                                        </td>
+                                    )}
+                                </tr>
+                            )
+                        })}
+                    </tbody>
+                </table>
+            </div>
+
+            {data.type === 'ORDER' && (
+                <div className="max-w-[80mm] mx-auto">
+                    <div className="flex justify-between font-bold text-lg mb-2">
+                        <span>TOTAL</span>
+                        <span>R$ {data.total.toFixed(2)}</span>
+                    </div>
+
+                    <div className="border-t border-dashed border-black pt-2 mb-4">
+                        <p className="font-bold text-xs uppercase mb-1">Pagamentos</p>
+                        {data.payments.length > 0 ? (
+                            data.payments.map((p, i) => (
+                                <div key={i} className="flex justify-between text-xs">
+                                    <span>{p.formaPagamentoNome}</span>
+                                    <span>R$ {p.valor.toFixed(2)}</span>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-xs italic">Nenhum pagamento registrado.</p>
+                        )}
+                    </div>
+                </div>
+            )}
+            
+            {data.obs && (
+                 <div className="max-w-[80mm] mx-auto border-t border-dashed border-black pt-2 mb-2">
+                    <p className="font-bold text-xs">OBSERVAÇÕES:</p>
+                    <p className="text-sm">{data.obs}</p>
+                 </div>
+            )}
+
+            <div className="max-w-[80mm] mx-auto text-center text-xs mt-6 border-t border-black pt-2">
+                <p>Obrigado pela preferência!</p>
+                <p>www.deliverysys.com.br</p>
+            </div>
+        </div>
+    );
 };
 
 const POS: React.FC = () => {
@@ -32,6 +149,9 @@ const POS: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const [observation, setObservation] = useState('');
   
+  // Print State
+  const [printData, setPrintData] = useState<PrintableData | null>(null);
+
   // Search States
   const [productSearch, setProductSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
@@ -61,6 +181,18 @@ const POS: React.FC = () => {
   useEffect(() => {
     refreshData();
   }, []);
+
+  // Print Trigger
+  useEffect(() => {
+      if (printData) {
+          // Small delay to allow React to render the hidden print component
+          const timer = setTimeout(() => {
+              window.print();
+              setPrintData(null); // Reset after printing
+          }, 300);
+          return () => clearTimeout(timer);
+      }
+  }, [printData]);
 
   // Keyboard Shortcuts
   useEffect(() => {
@@ -215,6 +347,36 @@ const POS: React.FC = () => {
     setIsClientModalOpen(false);
   };
 
+  // --- PRINTING HANDLERS ---
+  const handlePrintOrder = () => {
+      setPrintData({
+          type: 'ORDER',
+          orderId: editingOrderId || "NOVO",
+          date: new Date().toISOString(),
+          clientName: selectedClient?.nome || 'Consumidor Final',
+          clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
+          deliveryType: currentOrderType,
+          items: cart,
+          total: calculateCartTotal(),
+          payments: existingPayments,
+          obs: observation
+      });
+  };
+
+  const handlePrintItem = (item: PedidoItem) => {
+      setPrintData({
+          type: 'ITEM',
+          orderId: editingOrderId || "NOVO",
+          date: new Date().toISOString(),
+          clientName: selectedClient?.nome || 'Consumidor Final',
+          deliveryType: currentOrderType,
+          items: [item],
+          total: 0,
+          payments: [],
+          obs: observation
+      });
+  };
+
   // --- ACTIONS ---
 
   // 1. Save as Pending (For Delivery/Encomenda)
@@ -244,9 +406,29 @@ const POS: React.FC = () => {
     };
 
     db.savePedido(pedido);
+    setEditingOrderId(id); // Ensure we stay on edit mode with valid ID
     refreshData();
-    setView('list');
+    
     alert(`Pedido #${id} salvo com sucesso!`);
+    
+    // Offer to print
+    if(confirm("Deseja imprimir o pedido?")) {
+        // We set print data based on the saved state
+        setPrintData({
+            type: 'ORDER',
+            orderId: id,
+            date: pedido.data,
+            clientName: selectedClient?.nome || 'Consumidor Final',
+            clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
+            deliveryType: currentOrderType,
+            items: cart,
+            total: total,
+            payments: existingPayments,
+            obs: observation
+        });
+    } else {
+        setView('list');
+    }
   };
 
   // 2. Open Payment Modal (For Finalizing)
@@ -383,8 +565,25 @@ const POS: React.FC = () => {
         if (newRemaining <= 0.01) {
             // Fully Paid
             setIsPaymentModalOpen(false);
-            setView('list');
             alert(`Atendimento #${orderId} finalizado com sucesso!`);
+            
+            // Offer to print
+            if(confirm("Deseja imprimir o comprovante?")) {
+                setPrintData({
+                    type: 'ORDER',
+                    orderId: orderId,
+                    date: updatedOrder.data,
+                    clientName: selectedClient?.nome || 'Consumidor Final',
+                    clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
+                    deliveryType: currentOrderType,
+                    items: cart,
+                    total: total,
+                    payments: updatedOrder.pagamentos,
+                    obs: observation
+                });
+            } else {
+                setView('list');
+            }
         } else {
             // Still Partial - Reset input to new remaining
             setPaymentInputValue(newRemaining.toFixed(2));
@@ -560,6 +759,9 @@ const POS: React.FC = () => {
      if (currentOrderType === TipoAtendimento.VendaRapida) {
          return (
             <div className="flex gap-2">
+                 <button onClick={handlePrintOrder} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-300 flex items-center gap-2" title="Imprimir Pedido">
+                    <Printer size={18} />
+                 </button>
                  {editingOrderId && (
                      <button 
                         onClick={handleCancelFullOrder} 
@@ -579,6 +781,9 @@ const POS: React.FC = () => {
      if (editingOrderId && currentOrderStatus === PedidoStatus.Pendente) {
          return (
              <div className="flex gap-2">
+                 <button onClick={handlePrintOrder} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-300 flex items-center gap-2" title="Imprimir Pedido">
+                    <Printer size={18} />
+                 </button>
                  <button 
                     onClick={handleCancelFullOrder} 
                     className={`px-4 py-1.5 text-white text-sm font-bold rounded-lg flex items-center gap-2 shadow-sm ${existingPayments.length > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
@@ -608,10 +813,12 @@ const POS: React.FC = () => {
      if (currentOrderStatus === PedidoStatus.Pago) {
          return (
             <div className="flex gap-2 items-center">
+                <button onClick={handlePrintOrder} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-300 flex items-center gap-2" title="Imprimir Pedido">
+                    <Printer size={18} />
+                </button>
                 <div className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm font-bold flex items-center gap-2">
                     <CheckSquare size={16}/> Pedido Pago / Fechado
                 </div>
-                {/* Allow cancellation check, but it will be blocked by handleCancelFullOrder if there are payments */}
                 <button 
                     onClick={handleCancelFullOrder} 
                     className={`px-3 py-1 text-xs font-bold rounded border ${existingPayments.length > 0 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-red-100 text-red-600 hover:bg-red-200 border-red-200'}`}
@@ -726,6 +933,9 @@ const POS: React.FC = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-7rem)] bg-gray-100 -m-6 p-4 relative">
       
+      {/* Hidden Print Component */}
+      <PrintableReceipt data={printData} />
+
       {/* Addon Modal */}
       {isAddonModalOpen && pendingAddonProduct && (
         <div className="absolute inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1159,7 +1369,7 @@ const POS: React.FC = () => {
 
                                 return (
                                 <React.Fragment key={`${item.produto.id}-${index}`}>
-                                <tr className="hover:bg-blue-50 transition-colors">
+                                <tr className="hover:bg-blue-50 transition-colors group">
                                     <td className="p-2 text-sm text-gray-500">{item.produto.codigoInterno}</td>
                                     <td className="p-2 text-sm font-medium text-gray-800">
                                       {item.produto.nome}
@@ -1193,7 +1403,14 @@ const POS: React.FC = () => {
                                     </td>
                                     <td className="p-2 text-sm text-right text-gray-600">R$ {item.produto.preco.toFixed(2)}</td>
                                     <td className="p-2 text-sm font-bold text-right text-blue-700">R$ {lineTotal.toFixed(2)}</td>
-                                    <td className="p-2 text-center">
+                                    <td className="p-2 text-center flex items-center justify-center gap-1">
+                                        <button 
+                                            onClick={() => handlePrintItem(item)}
+                                            className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Imprimir Etiqueta do Item"
+                                        >
+                                            <Printer size={16} />
+                                        </button>
                                         {currentOrderStatus !== PedidoStatus.Pago && currentOrderStatus !== PedidoStatus.Cancelado && (
                                             <button onClick={() => handleRemoveItem(index)} className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded">
                                                 <Trash2 size={16} />
