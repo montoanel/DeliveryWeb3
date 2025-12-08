@@ -171,6 +171,8 @@ class MockDbContext {
     const pedido = this.pedidos.find(p => p.id === pedidoId);
     if (!pedido) throw new Error("Pedido não encontrado");
 
+    if (!pedido.pagamentos) pedido.pagamentos = [];
+    
     const pagamento = pedido.pagamentos.find(p => p.id === pagamentoId);
     if (!pagamento) throw new Error("Pagamento não encontrado");
 
@@ -186,11 +188,11 @@ class MockDbContext {
     // 2. Remove Payment from Order
     pedido.pagamentos = pedido.pagamentos.filter(p => p.id !== pagamentoId);
 
-    // 3. Recalculate Status
+    // 3. Recalculate Status - ALWAYS revert to Pendente if it drops below total
     const totalPago = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
-    if (totalPago < (pedido.total - 0.01)) {
-        // If it was Pago, it goes back to Pendente
-        if (pedido.status === PedidoStatus.Pago) {
+    
+    if (pedido.status !== PedidoStatus.Cancelado) {
+        if (totalPago < (pedido.total - 0.01)) {
             pedido.status = PedidoStatus.Pendente;
         }
     }

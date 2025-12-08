@@ -279,7 +279,7 @@ const POS: React.FC = () => {
     if (editingOrderId) {
         const freshOrder = db.getPedidoById(editingOrderId);
         if (freshOrder) {
-            setExistingPayments(freshOrder.pagamentos);
+            setExistingPayments([...freshOrder.pagamentos]); // Ensure copy
             setCurrentOrderStatus(freshOrder.status);
         }
     }
@@ -368,7 +368,7 @@ const POS: React.FC = () => {
      // Refresh Local State
      const updatedOrder = db.getPedidoById(orderId);
      if (updatedOrder) {
-        setExistingPayments(updatedOrder.pagamentos);
+        setExistingPayments([...updatedOrder.pagamentos]); // Force new array ref
         setCurrentOrderStatus(updatedOrder.status);
         
         // Show Feedback
@@ -399,16 +399,29 @@ const POS: React.FC = () => {
       if (confirm(`ATENÇÃO: Deseja estornar/cancelar este recebimento de R$ ${amount.toFixed(2)}?\nIsso lançará uma saída no caixa e o pedido voltará a ficar pendente.`)) {
           try {
               db.cancelPagamento(editingOrderId, paymentId);
-              refreshData();
               
-              // Refresh Local State
-              const updatedOrder = db.getPedidoById(editingOrderId);
-              if (updatedOrder) {
-                  setExistingPayments(updatedOrder.pagamentos);
-                  setCurrentOrderStatus(updatedOrder.status);
+              // 1. Manually update local state to remove the item immediately
+              const updatedPayments = existingPayments.filter(p => p.id !== paymentId);
+              setExistingPayments(updatedPayments);
+              
+              // 2. Update status immediately based on local calc to unblock buttons
+              if (updatedPayments.length === 0) {
+                  setCurrentOrderStatus(PedidoStatus.Pendente);
+              } else {
+                  // Partial check
+                  const newPaid = updatedPayments.reduce((acc, p) => acc + p.valor, 0);
+                  const total = calculateCartTotal();
+                  if (newPaid < (total - 0.01)) {
+                      setCurrentOrderStatus(PedidoStatus.Pendente);
+                  }
               }
+
+              // 3. Refresh global list background
+              refreshData(); 
+              
               alert("Pagamento estornado com sucesso.");
           } catch (e) {
+              console.error(e);
               alert("Erro ao estornar pagamento.");
           }
       }
@@ -418,10 +431,13 @@ const POS: React.FC = () => {
   const handleCancelFullOrder = () => {
       if (!editingOrderId) return;
 
+      // Business Rule: Cannot cancel if there are active payments
+      if (existingPayments.length > 0) {
+          alert("NÃO É POSSÍVEL CANCELAR: Existem pagamentos vinculados a este pedido.\n\nPor favor, estorne todos os pagamentos na lista 'Resumo Financeiro' antes de cancelar o atendimento totalmente.");
+          return;
+      }
+
       if (confirm("Deseja CANCELAR este atendimento totalmente?\nIsso mudará o status para Cancelado.")) {
-          // If there are payments, we should strictly warn or handle them.
-          // For now, we allow canceling, but ideally one should void payments first.
-          // In this simplified version, we just mark as Cancelled.
           const currentOrder = db.getPedidoById(editingOrderId);
           if (currentOrder) {
               const pedido: Pedido = {
@@ -545,7 +561,10 @@ const POS: React.FC = () => {
          return (
             <div className="flex gap-2">
                  {editingOrderId && (
-                     <button onClick={handleCancelFullOrder} className="px-4 py-1.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 flex items-center gap-2 shadow-sm">
+                     <button 
+                        onClick={handleCancelFullOrder} 
+                        className={`px-4 py-1.5 text-white text-sm font-bold rounded-lg flex items-center gap-2 shadow-sm ${existingPayments.length > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
+                     >
                         <Trash2 size={18} /> Cancelar Pedido
                      </button>
                  )}
@@ -560,7 +579,10 @@ const POS: React.FC = () => {
      if (editingOrderId && currentOrderStatus === PedidoStatus.Pendente) {
          return (
              <div className="flex gap-2">
-                 <button onClick={handleCancelFullOrder} className="px-4 py-1.5 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 flex items-center gap-2 shadow-sm">
+                 <button 
+                    onClick={handleCancelFullOrder} 
+                    className={`px-4 py-1.5 text-white text-sm font-bold rounded-lg flex items-center gap-2 shadow-sm ${existingPayments.length > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
+                 >
                     <Trash2 size={18} /> Cancelar Pedido
                  </button>
                  <button onClick={handleSavePendingOrder} className="px-4 py-1.5 bg-yellow-500 text-white text-sm font-bold rounded-lg hover:bg-yellow-600 flex items-center gap-2 shadow-sm">
@@ -589,8 +611,11 @@ const POS: React.FC = () => {
                 <div className="bg-green-100 text-green-800 px-3 py-1 rounded text-sm font-bold flex items-center gap-2">
                     <CheckSquare size={16}/> Pedido Pago / Fechado
                 </div>
-                {/* Allow cancellation even if paid, though logic might need refund handling in real world */}
-                <button onClick={handleCancelFullOrder} className="px-3 py-1 bg-red-100 text-red-600 text-xs font-bold rounded hover:bg-red-200 border border-red-200">
+                {/* Allow cancellation check, but it will be blocked by handleCancelFullOrder if there are payments */}
+                <button 
+                    onClick={handleCancelFullOrder} 
+                    className={`px-3 py-1 text-xs font-bold rounded border ${existingPayments.length > 0 ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-red-100 text-red-600 hover:bg-red-200 border-red-200'}`}
+                >
                      Cancelar
                  </button>
             </div>
@@ -1231,8 +1256,8 @@ const POS: React.FC = () => {
                                     <span className="font-bold">R$ {p.valor.toFixed(2)}</span>
                                     {(currentOrderStatus !== PedidoStatus.Cancelado) && (
                                         <button 
-                                            onClick={() => handleVoidPayment(p.id, p.valor)}
-                                            className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => { e.stopPropagation(); handleVoidPayment(p.id, p.valor); }}
+                                            className="text-red-400 hover:text-red-600 transition-opacity"
                                             title="Estornar / Cancelar Pagamento"
                                         >
                                             <Trash2 size={14} />
