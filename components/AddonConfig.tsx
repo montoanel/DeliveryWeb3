@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { ConfiguracaoAdicional, Produto } from '../types';
-import { Plus, Edit2, Trash2, Save, X, Layers, ArrowRight, AlertCircle, DollarSign, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, ArrowRight, AlertCircle, DollarSign, Check, Copy } from 'lucide-react';
 
 const AddonConfig: React.FC = () => {
   const [configs, setConfigs] = useState<ConfiguracaoAdicional[]>([]);
@@ -35,6 +35,19 @@ const AddonConfig: React.FC = () => {
   const handleEdit = (config: ConfiguracaoAdicional) => {
     setFormData({ ...config });
     setView('form');
+  };
+
+  const handleClone = (config: ConfiguracaoAdicional) => {
+    // Copia toda a configuração, mas reseta o ID e o Produto Principal
+    // Isso permite aproveitar a lista de itens e a regra, aplicando a um novo produto
+    setFormData({
+        ...config,
+        id: 0,
+        produtoPrincipalId: 0 // Força o usuário a escolher o novo produto alvo
+    });
+    setView('form');
+    // Pequeno timeout para alertar o usuário visualmente ou apenas focar no campo
+    setTimeout(() => alert(`Regra clonada! Agora selecione o novo Produto Principal para esta configuração.`), 100);
   };
 
   const handleDelete = (id: number) => {
@@ -117,7 +130,7 @@ const AddonConfig: React.FC = () => {
                   value={formData.produtoPrincipalId}
                   onChange={(e) => setFormData({...formData, produtoPrincipalId: parseInt(e.target.value)})}
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  disabled={formData.id !== 0} 
+                  disabled={formData.id !== 0 && formData.produtoPrincipalId !== 0} 
                 >
                   <option value={0}>Selecione...</option>
                   {mainProducts.map(p => (
@@ -298,6 +311,13 @@ const AddonConfig: React.FC = () => {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => handleClone(config)} 
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                        title="Clonar Regra"
+                      >
+                        <Copy size={18} />
+                      </button>
                       <button onClick={() => handleEdit(config)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={18} /></button>
                       <button onClick={() => handleDelete(config.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={18} /></button>
                     </div>
