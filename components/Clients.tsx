@@ -146,16 +146,16 @@ const Clients: React.FC = () => {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Regra de Negócio: Validação de CPF/CNPJ
+    // --- Strict Validation Rules ---
+    if (!formData.nome.trim()) { alert("O Nome Completo é obrigatório."); return; }
+    if (!formData.cpfCnpj.trim()) { alert("O CPF/CNPJ é obrigatório."); return; }
+    if (!formData.telefone.trim()) { alert("O Telefone é obrigatório."); return; }
+    if (!formData.endereco.trim()) { alert("O Endereço (Rua) é obrigatório."); return; }
+    if (!formData.numero.trim()) { alert("O Número do endereço é obrigatório."); return; }
+    if (!formData.bairro.trim()) { alert("O Bairro é obrigatório."); return; }
+
     const cleanDoc = formData.cpfCnpj.replace(/[^\d]+/g, '');
     
-    // Se estiver vazio, permitimos ou bloqueamos? Geralmente bloqueia se for obrigatório.
-    // Assumindo que é obrigatório dado que é chave de negócio.
-    if (!cleanDoc) {
-      alert("O campo CPF/CNPJ é obrigatório.");
-      return;
-    }
-
     if (formData.tipoPessoa === 'Física') {
       if (!isValidCPF(cleanDoc)) {
         alert(`O CPF ${formData.cpfCnpj} é inválido!\nPor favor verifique os dígitos e tente novamente.`);
@@ -226,7 +226,7 @@ const Clients: React.FC = () => {
             </div>
 
             <div className="md:col-span-7">
-               <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo / Razão Social</label>
+               <label className="block text-sm font-medium text-gray-700 mb-2">Nome Completo / Razão Social <span className="text-red-500">*</span></label>
                <input 
                   type="text" 
                   required
@@ -240,7 +240,7 @@ const Clients: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-100 pb-8">
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">CPF / CNPJ</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">CPF / CNPJ <span className="text-red-500">*</span></label>
                 <input 
                   type="text" 
                   required
@@ -255,9 +255,10 @@ const Clients: React.FC = () => {
                 />
              </div>
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Telefone / Celular</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Telefone / Celular <span className="text-red-500">*</span></label>
                 <input 
                   type="text" 
+                  required
                   value={formData.telefone}
                   onChange={(e) => setFormData({...formData, telefone: maskPhone(e.target.value)})}
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -286,9 +287,10 @@ const Clients: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Endereço (Rua, Av.)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Endereço (Rua, Av.) <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
+                required
                 value={formData.endereco}
                 onChange={(e) => setFormData({...formData, endereco: e.target.value})}
                 className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -296,9 +298,10 @@ const Clients: React.FC = () => {
               />
             </div>
              <div className="md:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Número</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Número <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
+                required
                 value={formData.numero}
                 onChange={(e) => setFormData({...formData, numero: e.target.value})}
                 className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -319,9 +322,10 @@ const Clients: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Bairro</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Bairro <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
+                required
                 value={formData.bairro}
                 onChange={(e) => setFormData({...formData, bairro: e.target.value})}
                 className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"

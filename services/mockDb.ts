@@ -318,6 +318,17 @@ class MockDB {
       const cliente = this.clientes.find(c => c.id === pedido.clienteId);
       if(!cliente) throw new Error("Cliente não encontrado.");
 
+      // --- RULE: Only Registered Clients ---
+      // ID 1 is the Default/Standard Client in our Seed
+      if (cliente.id === 1 || !cliente.cpfCnpj || cliente.cpfCnpj === '000.000.000-00') {
+          throw new Error("Não é permitido gerar crédito para Cliente Padrão/Consumidor Final.");
+      }
+
+      // --- RULE: Mandatory Fields check (Double Safety) ---
+      if (!cliente.endereco || !cliente.numero || !cliente.bairro || !cliente.telefone) {
+          throw new Error("Cadastro incompleto. Para gerar crédito, o cliente precisa de Endereço, Número, Bairro e Telefone.");
+      }
+
       // 1. Add Payment to Order
       pedido.pagamentos.push(payment);
       
