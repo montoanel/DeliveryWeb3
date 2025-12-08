@@ -282,6 +282,24 @@ class MockDB {
       return this.sessoes.filter(s => s.status === StatusSessao.Fechada).sort((a,b) => new Date(b.dataFechamento!).getTime() - new Date(a.dataFechamento!).getTime());
   }
 
+  getSessoesConsolidadas(start?: string, end?: string) {
+      let query = this.sessoes.filter(s => s.status === StatusSessao.Consolidada);
+      
+      if (start) {
+          const startDate = new Date(start);
+          startDate.setHours(0,0,0,0);
+          query = query.filter(s => new Date(s.dataAbertura) >= startDate);
+      }
+      
+      if (end) {
+          const endDate = new Date(end);
+          endDate.setHours(23,59,59,999);
+          query = query.filter(s => new Date(s.dataAbertura) <= endDate);
+      }
+
+      return query.sort((a,b) => new Date(b.dataConsolidacao || b.dataAbertura).getTime() - new Date(a.dataConsolidacao || a.dataAbertura).getTime());
+  }
+
   getSaldoSessao(sessaoId: number): number {
     return this.caixaMovimentos
       .filter(m => m.sessaoId === sessaoId)
