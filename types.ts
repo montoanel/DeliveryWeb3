@@ -117,3 +117,15 @@ export interface CaixaMovimento {
   valor: number;
   observacao: string;
 }
+
+// User Management
+export type PerfilAcesso = 'Administrador' | 'Padrão';
+
+export interface Usuario {
+  id: number;
+  nome: string;
+  login: string;
+  senha?: string; // Optional when listing to avoid exposing
+  perfil: PerfilAcesso;
+  ativo: boolean;
+}

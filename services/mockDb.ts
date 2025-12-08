@@ -1,4 +1,4 @@
-import { Cliente, Produto, CaixaMovimento, Pedido, TipoOperacaoCaixa, PedidoStatus, GrupoProduto, FormaPagamento, ConfiguracaoAdicional, Pagamento } from '../types';
+import { Cliente, Produto, CaixaMovimento, Pedido, TipoOperacaoCaixa, PedidoStatus, GrupoProduto, FormaPagamento, ConfiguracaoAdicional, Pagamento, Usuario } from '../types';
 
 export const INITIAL_GROUPS: GrupoProduto[] = [
   { id: 1, nome: 'Lanches' },
@@ -68,6 +68,11 @@ export const INITIAL_CLIENTS: Cliente[] = [
   },
 ];
 
+export const INITIAL_USERS: Usuario[] = [
+  { id: 1, nome: 'Administrador do Sistema', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true },
+  { id: 2, nome: 'Operador de Caixa', login: 'operador', senha: '123', perfil: 'Padrão', ativo: true },
+];
+
 // Helper to simulate DB operations
 class MockDbContext {
   private caixa: CaixaMovimento[] = [];
@@ -77,6 +82,7 @@ class MockDbContext {
   private clientes: Cliente[] = [...INITIAL_CLIENTS];
   private formasPagamento: FormaPagamento[] = [...INITIAL_PAYMENT_METHODS];
   private configAdicionais: ConfiguracaoAdicional[] = [...INITIAL_ADDON_CONFIGS];
+  private usuarios: Usuario[] = [...INITIAL_USERS];
 
   constructor() {
     // Seed initial cash opening
@@ -87,6 +93,12 @@ class MockDbContext {
       valor: 150.00,
       observacao: 'Abertura de Caixa Inicial'
     });
+  }
+
+  // --- Auth ---
+  authenticate(login: string, senha: string): Usuario | null {
+    const user = this.usuarios.find(u => u.login === login && u.senha === senha && u.ativo);
+    return user || null;
   }
 
   // --- Caixa ---
@@ -299,6 +311,24 @@ class MockDbContext {
 
   deleteConfiguracaoAdicional(id: number) {
     this.configAdicionais = this.configAdicionais.filter(c => c.id !== id);
+  }
+
+  // --- Usuários ---
+  getUsuarios() {
+    return [...this.usuarios];
+  }
+
+  saveUsuario(usuario: Usuario) {
+    if (usuario.id === 0) {
+      const newId = Math.max(...this.usuarios.map(u => u.id), 0) + 1;
+      this.usuarios.push({ ...usuario, id: newId });
+    } else {
+      this.usuarios = this.usuarios.map(u => u.id === usuario.id ? usuario : u);
+    }
+  }
+
+  deleteUsuario(id: number) {
+    this.usuarios = this.usuarios.filter(u => u.id !== id);
   }
 }
 
