@@ -342,6 +342,43 @@ class MockDB {
       cliente.saldoCredito = (cliente.saldoCredito || 0) + valorTroco;
   }
   
+  usarCreditoCliente(orderId: number, valor: number, userId: number) {
+      const sessao = this.getSessaoAberta(userId);
+      if(!sessao) throw new Error("Caixa Fechado.");
+
+      const pedido = this.getPedidoById(orderId);
+      if(!pedido) throw new Error("Pedido não encontrado");
+      if(!pedido.clienteId) throw new Error("Pedido sem cliente vinculado.");
+      
+      const cliente = this.clientes.find(c => c.id === pedido.clienteId);
+      if(!cliente) throw new Error("Cliente não encontrado.");
+      
+      if ((cliente.saldoCredito || 0) < valor) {
+          throw new Error("Saldo de crédito insuficiente.");
+      }
+
+      // 1. Deduct from client
+      cliente.saldoCredito = (cliente.saldoCredito || 0) - valor;
+
+      // 2. Add Payment Record (Type 'Credito')
+      const payment: Pagamento = {
+          id: Math.random().toString(36).substr(2, 9),
+          data: new Date().toISOString(),
+          formaPagamentoId: 999, // Virtual ID for credit
+          formaPagamentoNome: 'Crédito Cliente',
+          valor: valor
+      };
+      pedido.pagamentos.push(payment);
+
+      const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
+      if (totalPaid >= (pedido.total - 0.01)) {
+          pedido.status = PedidoStatus.Pago;
+      }
+
+      // 3. Register Operation in Cash (Virtual Entry to balance the sale)
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.UsoCredito, valor, `Pagamento com Crédito - Cliente #${cliente.id}`);
+  }
+
   cancelPagamento(orderId: number, paymentId: string, userId: number) {
       const sessao = this.getSessaoAberta(userId);
       if(!sessao) throw new Error("Caixa Fechado. Abra o caixa para estornar.");
@@ -356,6 +393,14 @@ class MockDB {
       
       const payment = pedido.pagamentos[paymentIndex];
       
+      // If payment was Credit, return to client balance?
+      if (payment.formaPagamentoNome === 'Crédito Cliente') {
+          const cliente = this.clientes.find(c => c.id === pedido.clienteId);
+          if (cliente) {
+              cliente.saldoCredito = (cliente.saldoCredito || 0) + payment.valor;
+          }
+      }
+
       // Remove payment
       pedido.pagamentos.splice(paymentIndex, 1);
       

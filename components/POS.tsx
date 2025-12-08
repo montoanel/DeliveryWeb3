@@ -5,7 +5,7 @@ import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, Fo
 import { db } from '../services/mockDb';
 import { 
   Search, Plus, Trash2, User, Truck, ShoppingBag, 
-  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit, AlertCircle, RefreshCcw, Printer
+  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit, AlertCircle, RefreshCcw, Printer, Wallet
 } from 'lucide-react';
 
 // Helper for accent-insensitive search
@@ -194,6 +194,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
 
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
   const [paymentInputValue, setPaymentInputValue] = useState<string>(''); 
+  const [usingCredit, setUsingCredit] = useState(false);
 
   // --- Data Loading ---
   const refreshData = () => {
@@ -272,6 +273,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
 
     setSelectedPaymentMethodId(null);
     setPaymentInputValue('');
+    setUsingCredit(false);
     
     setView('form');
   };
@@ -290,7 +292,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
     })));
     
     const client = availableClients.find(c => c.id === order.clienteId);
-    setSelectedClient(client || (order.clienteId ? { id: order.clienteId, nome: order.clienteNome || 'Cliente', cpfCnpj: '', telefone: '', endereco: '', numero: '', complemento: '', bairro: '', tipoPessoa: 'Física' } : null));
+    setSelectedClient(client || (order.clienteId ? { id: order.clienteId, nome: order.clienteNome || 'Cliente', cpfCnpj: '', telefone: '', endereco: '', numero: '', complemento: '', bairro: '', tipoPessoa: 'Física', saldoCredito: 0 } : null));
     
     setObservation(''); // Obs not currently in Pedido model, skipping restore
     
@@ -499,6 +501,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
     // Default to Cash
     const moneyMethod = paymentMethods.find(p => p.nome.toLowerCase().includes('dinheiro'));
     setSelectedPaymentMethodId(moneyMethod ? moneyMethod.id : (paymentMethods[0]?.id || null));
+    setUsingCredit(false);
     
     // Set default value to remaining
     const total = calculateCartTotal();
@@ -523,7 +526,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
 
   // 3. Register Partial Payment
   const handleRegisterPayment = () => {
-     if (!selectedPaymentMethodId) {
+     if (!usingCredit && !selectedPaymentMethodId) {
        alert("Selecione uma forma de pagamento.");
        return;
      }
@@ -572,54 +575,76 @@ const POS: React.FC<POSProps> = ({ user }) => {
         db.savePedido(pedido);
      }
 
-     const selectedMethod = paymentMethods.find(p => p.id === selectedPaymentMethodId);
-     const isCash = selectedMethod?.nome.toLowerCase().includes('dinheiro');
-     
-     let realPayment = amountToPay;
-     let change = 0;
-     
-     if (amountToPay > (remaining + 0.01)) {
-        if (isCash) {
-            change = amountToPay - remaining;
-            realPayment = remaining;
-        } else {
+     // === CREDIT PAYMENT FLOW ===
+     if (usingCredit) {
+         if (amountToPay > (remaining + 0.01)) {
             alert(`O valor não pode ser maior que o restante (R$ ${remaining.toFixed(2)}).`);
             return;
-        }
-     }
-
-     const newPayment: Pagamento = {
-       id: Math.random().toString(36).substr(2, 9),
-       data: new Date().toISOString(),
-       formaPagamentoId: selectedMethod!.id,
-       formaPagamentoNome: selectedMethod!.nome,
-       valor: realPayment
-     };
-
-     // Execute DB Operation with Error Handling for Session & Balance
-     try {
-         // Pass change and brute value for strict checking
-         db.addPagamento(orderId, newPayment, user.id, change, isCash ? amountToPay : 0);
-     } catch(e: any) {
-         if (e.message && e.message.includes("ERR_SALDO_INSUFICIENTE")) {
-             // Logic for Credit Conversion
-             if (selectedClient && confirm(`SALDO INSUFICIENTE PARA O TROCO DE R$ ${change.toFixed(2)}.\n\nDeseja transformar este troco em CRÉDITO para o cliente ${selectedClient.nome}?`)) {
-                 try {
-                     db.converterTrocoEmCredito(orderId, newPayment, change, user.id, amountToPay);
-                     alert(`Troco convertido em crédito com sucesso!`);
-                     // Success - fallthrough to refresh
-                 } catch (err: any) {
-                     alert("Erro ao gerar crédito: " + err.message);
-                     return;
-                 }
-             } else {
-                 alert("Operação cancelada. Verifique o saldo do caixa.");
-                 return;
-             }
-         } else {
+         }
+         try {
+             db.usarCreditoCliente(orderId, amountToPay, user.id);
+             alert("Crédito utilizado com sucesso!");
+         } catch(e: any) {
              alert(e.message);
              return;
          }
+     } 
+     // === STANDARD PAYMENT FLOW ===
+     else {
+        const selectedMethod = paymentMethods.find(p => p.id === selectedPaymentMethodId);
+        const isCash = selectedMethod?.nome.toLowerCase().includes('dinheiro');
+        
+        let realPayment = amountToPay;
+        let change = 0;
+        
+        if (amountToPay > (remaining + 0.01)) {
+            if (isCash) {
+                change = amountToPay - remaining;
+                realPayment = remaining;
+            } else {
+                alert(`O valor não pode ser maior que o restante (R$ ${remaining.toFixed(2)}).`);
+                return;
+            }
+        }
+
+        const newPayment: Pagamento = {
+        id: Math.random().toString(36).substr(2, 9),
+        data: new Date().toISOString(),
+        formaPagamentoId: selectedMethod!.id,
+        formaPagamentoNome: selectedMethod!.nome,
+        valor: realPayment
+        };
+
+        // Execute DB Operation with Error Handling for Session & Balance
+        try {
+            // Pass change and brute value for strict checking
+            db.addPagamento(orderId, newPayment, user.id, change, isCash ? amountToPay : 0);
+        } catch(e: any) {
+            if (e.message && e.message.includes("ERR_SALDO_INSUFICIENTE")) {
+                // Logic for Credit Conversion
+                if (selectedClient && confirm(`SALDO INSUFICIENTE PARA O TROCO DE R$ ${change.toFixed(2)}.\n\nDeseja transformar este troco em CRÉDITO para o cliente ${selectedClient.nome}?`)) {
+                    try {
+                        db.converterTrocoEmCredito(orderId, newPayment, change, user.id, amountToPay);
+                        alert(`Troco convertido em crédito com sucesso!`);
+                        // Success - fallthrough to refresh
+                    } catch (err: any) {
+                        alert("Erro ao gerar crédito: " + err.message);
+                        return;
+                    }
+                } else {
+                    alert("Operação cancelada. Verifique o saldo do caixa.");
+                    return;
+                }
+            } else {
+                alert(e.message);
+                return;
+            }
+        }
+        
+        // Show Feedback
+        if (change > 0) {
+             alert(`Pagamento registrado!\n\nTROCO: R$ ${change.toFixed(2)}`);
+        }
      }
      
      refreshData(); // Refresh background list immediately
@@ -629,11 +654,6 @@ const POS: React.FC<POSProps> = ({ user }) => {
      if (updatedOrder) {
         setExistingPayments([...updatedOrder.pagamentos]); // Force new array ref
         setCurrentOrderStatus(updatedOrder.status);
-        
-        // Show Feedback
-        if (change > 0) {
-             alert(`Pagamento registrado!\n\nTROCO: R$ ${change.toFixed(2)}`);
-        }
         
         // Check if finished
         const newTotalPaid = updatedOrder.pagamentos.reduce((acc, p) => acc + p.valor, 0);
@@ -669,6 +689,8 @@ const POS: React.FC<POSProps> = ({ user }) => {
         } else {
             // Still Partial - Reset input to new remaining
             setPaymentInputValue(newRemaining.toFixed(2));
+            // If was using credit, reset toggle to allow mixing payments
+            if (usingCredit) setUsingCredit(false); 
         }
      }
   };
@@ -816,7 +838,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
   const isCashPayment = selectedMethodObj?.nome.toLowerCase().includes('dinheiro');
   
   const inputValueFloat = parseFloat(paymentInputValue) || 0;
-  const potentialChange = (isCashPayment && inputValueFloat > remainingTotal) ? inputValueFloat - remainingTotal : 0;
+  const potentialChange = (!usingCredit && isCashPayment && inputValueFloat > remainingTotal) ? inputValueFloat - remainingTotal : 0;
 
   const getStatusColor = (status: PedidoStatus) => {
     switch(status) {
@@ -1225,6 +1247,37 @@ const POS: React.FC<POSProps> = ({ user }) => {
                             </div>
                         </div>
 
+                        {/* Credit Tab */}
+                        {selectedClient && (selectedClient.saldoCredito || 0) > 0 && (
+                             <div 
+                                onClick={() => {
+                                    setUsingCredit(!usingCredit);
+                                    if(!usingCredit) { // activating
+                                        setSelectedPaymentMethodId(null);
+                                    }
+                                }}
+                                className={`p-4 rounded-lg border-2 cursor-pointer flex justify-between items-center transition-all ${
+                                    usingCredit
+                                    ? 'border-green-500 bg-green-50'
+                                    : 'border-gray-200 hover:border-green-300'
+                                }`}
+                             >
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-2 rounded-full ${usingCredit ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                                        <Wallet size={20} />
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-gray-800">Usar Crédito Cliente</div>
+                                        <div className="text-xs text-gray-500">Saldo Disponível: R$ {selectedClient.saldoCredito?.toFixed(2)}</div>
+                                    </div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${usingCredit ? 'border-green-600 bg-green-600' : 'border-gray-300'}`}>
+                                    {usingCredit && <CheckSquare size={12} className="text-white"/>}
+                                </div>
+                             </div>
+                        )}
+
+                        {!usingCredit && (
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Selecione a Forma</label>
                             <div className="grid grid-cols-2 gap-3">
@@ -1243,11 +1296,12 @@ const POS: React.FC<POSProps> = ({ user }) => {
                                 ))}
                             </div>
                         </div>
+                        )}
 
                         {/* Value Input (Editable for ALL methods) */}
                         <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                             <label className="block text-sm font-bold text-gray-700 mb-2">
-                                Valor a Processar ({selectedMethodObj?.nome || '...'})
+                                Valor a Processar ({usingCredit ? 'Crédito' : (selectedMethodObj?.nome || '...')})
                             </label>
                             <div className="relative">
                                 <span className="absolute left-3 top-3 text-gray-500 font-bold">R$</span>
@@ -1261,7 +1315,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
                             </div>
                             
                             {/* Change Preview */}
-                            {isCashPayment && (
+                            {isCashPayment && !usingCredit && (
                                 <div className="mt-3 flex justify-between items-center text-sm">
                                     <span className="font-bold text-gray-500">Troco Estimado:</span>
                                     <span className={`font-bold text-xl ${potentialChange > 0 ? 'text-green-600' : 'text-gray-400'}`}>
@@ -1270,7 +1324,14 @@ const POS: React.FC<POSProps> = ({ user }) => {
                                 </div>
                             )}
                             
-                            {!isCashPayment && parseFloat(paymentInputValue) > remainingTotal && (
+                            {/* Credit Limit Check */}
+                            {usingCredit && selectedClient && parseFloat(paymentInputValue) > (selectedClient.saldoCredito || 0) && (
+                                <div className="mt-2 text-xs text-red-500 font-bold">
+                                    Atenção: Valor maior que o saldo de crédito disponível.
+                                </div>
+                            )}
+
+                            {(!isCashPayment || usingCredit) && parseFloat(paymentInputValue) > remainingTotal && (
                                 <div className="mt-2 text-xs text-red-500 font-bold">
                                     Atenção: Valor maior que o restante.
                                 </div>

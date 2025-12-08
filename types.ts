@@ -14,7 +14,8 @@ export enum TipoOperacaoCaixa {
   Vendas = 'Venda',
   Fechamento = 'Fechamento',
   Troco = 'Troco', // Saída
-  CreditoCliente = 'Crédito Cliente' // Entrada (sobra de troco)
+  CreditoCliente = 'Crédito Cliente', // Entrada (sobra de troco)
+  UsoCredito = 'Uso de Crédito' // Pagamento com saldo
 }
 
 export enum PedidoStatus {
