@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento } from '../types';
+import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento, Usuario } from '../types';
 import { db } from '../services/mockDb';
 import { 
   Search, Plus, Trash2, User, Truck, ShoppingBag, 
@@ -150,7 +150,11 @@ const PrintableReceipt = ({ data }: { data: PrintableData | null }) => {
     );
 };
 
-const POS: React.FC = () => {
+interface POSProps {
+    user: Usuario;
+}
+
+const POS: React.FC<POSProps> = ({ user }) => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [orders, setOrders] = useState<Pedido[]>([]);
   const [filterStatus, setFilterStatus] = useState<'Todos' | PedidoStatus>('Todos');
@@ -476,6 +480,12 @@ const POS: React.FC = () => {
 
   // 2. Open Payment Modal (For Finalizing)
   const handleInitiatePayment = () => {
+    // 1. Security Check: Active Session
+    if (!db.getSessaoAberta(user.id)) {
+        alert("ATENÇÃO: Você não possui um caixa aberto.\nPor favor, abra o caixa no menu 'Gestão de Caixa' antes de realizar vendas.");
+        return;
+    }
+
     if (cart.length === 0) {
       alert("O pedido precisa ter pelo menos um item.");
       return;
@@ -585,8 +595,13 @@ const POS: React.FC = () => {
        valor: realPayment
      };
 
-     // Execute DB Operation
-     db.addPagamento(orderId, newPayment);
+     // Execute DB Operation with Error Handling for Session
+     try {
+         db.addPagamento(orderId, newPayment, user.id);
+     } catch(e: any) {
+         alert(e.message);
+         return;
+     }
      
      refreshData(); // Refresh background list immediately
 
@@ -645,7 +660,7 @@ const POS: React.FC = () => {
       
       if (confirm(`ATENÇÃO: Deseja estornar/cancelar este recebimento de R$ ${amount.toFixed(2)}?\nIsso lançará uma saída no caixa e o pedido voltará a ficar pendente.`)) {
           try {
-              db.cancelPagamento(editingOrderId, paymentId);
+              db.cancelPagamento(editingOrderId, paymentId, user.id);
               
               // 1. Manually update local state to remove the item immediately
               const updatedPayments = existingPayments.filter(p => p.id !== paymentId);
@@ -667,9 +682,9 @@ const POS: React.FC = () => {
               refreshData(); 
               
               alert("Pagamento estornado com sucesso.");
-          } catch (e) {
+          } catch (e: any) {
               console.error(e);
-              alert("Erro ao estornar pagamento.");
+              alert(e.message || "Erro ao estornar pagamento.");
           }
       }
   };
@@ -882,7 +897,7 @@ const POS: React.FC = () => {
   return (
     <>
       <PrintableReceipt data={printData} />
-
+      {/* ... Rest of existing JSX logic (no changes needed in layout, just state handling above) ... */}
       {view === 'list' ? (
         <div className="space-y-6">
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
@@ -1286,7 +1301,7 @@ const POS: React.FC = () => {
                         </div>
                         <div className="md:col-span-3">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Atendente</label>
-                            <input type="text" value="2 - Admin" disabled className="w-full bg-gray-100 border border-gray-300 rounded p-1.5 text-sm text-gray-700" />
+                            <input type="text" value={`${user.id} - ${user.nome.split(' ')[0]}`} disabled className="w-full bg-gray-100 border border-gray-300 rounded p-1.5 text-sm text-gray-700" />
                         </div>
                         <div className="md:col-span-7 relative">
                             <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Cliente (F2)</label>

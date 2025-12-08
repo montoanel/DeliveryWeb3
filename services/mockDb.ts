@@ -1,360 +1,272 @@
+import { 
+  Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
+  SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
+  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional
+} from '../types';
 
-import { Cliente, Produto, CaixaMovimento, Pedido, TipoOperacaoCaixa, PedidoStatus, GrupoProduto, FormaPagamento, ConfiguracaoAdicional, Pagamento, Usuario } from '../types';
-
-export const INITIAL_GROUPS: GrupoProduto[] = [
-  { id: 1, nome: 'Lanches' },
-  { id: 2, nome: 'Pizzas' },
-  { id: 3, nome: 'Bebidas' },
-  { id: 4, nome: 'Porções' },
-  { id: 5, nome: 'Açaí' },
-  { id: 6, nome: 'Adicionais/Complementos' },
-];
-
-export const INITIAL_PAYMENT_METHODS: FormaPagamento[] = [
-  { id: 1, nome: 'Dinheiro', ativo: true },
-  { id: 2, nome: 'Cartão de Crédito', ativo: true },
-  { id: 3, nome: 'Cartão de Débito', ativo: true },
-  { id: 4, nome: 'PIX', ativo: true },
-  { id: 5, nome: 'Voucher / Refeição', ativo: true },
-];
-
-// Seed Data
-export const INITIAL_PRODUCTS: Produto[] = [
-  { id: 1, ativo: true, tipo: 'Principal', codigoInterno: 'L01', codigoBarras: '7890000001', nome: 'X-Burger Especial', preco: 25.00, custo: 12.00, unidadeMedida: 'UN', grupoProdutoId: 1, imagem: 'https://picsum.photos/200/200?random=1' },
-  { id: 2, ativo: true, tipo: 'Principal', codigoInterno: 'P01', codigoBarras: '7890000002', nome: 'Pizza Calabresa M', preco: 45.00, custo: 20.00, unidadeMedida: 'UN', grupoProdutoId: 2, imagem: 'https://picsum.photos/200/200?random=2' },
-  { id: 3, ativo: true, tipo: 'Principal', codigoInterno: 'B01', codigoBarras: '7890000003', nome: 'Coca-Cola 2L', preco: 12.00, custo: 7.50, unidadeMedida: 'UN', grupoProdutoId: 3, imagem: 'https://picsum.photos/200/200?random=3' },
-  { id: 4, ativo: true, tipo: 'Principal', codigoInterno: 'PT01', codigoBarras: '7890000004', nome: 'Batata Frita G', preco: 18.00, custo: 8.00, unidadeMedida: 'POR', grupoProdutoId: 4, imagem: 'https://picsum.photos/200/200?random=4' },
-  
-  // Açaí Scenario
-  { id: 5, ativo: true, tipo: 'Principal', codigoInterno: 'AC300', codigoBarras: '7890000005', nome: 'Açaí 300ml', preco: 15.00, custo: 5.00, unidadeMedida: 'UN', grupoProdutoId: 5 },
-  { id: 6, ativo: true, tipo: 'Principal', codigoInterno: 'AC500', codigoBarras: '7890000006', nome: 'Açaí 500ml', preco: 22.00, custo: 8.00, unidadeMedida: 'UN', grupoProdutoId: 5 },
-  
-  // Complementos
-  { id: 100, ativo: true, tipo: 'Complemento', codigoInterno: 'AD01', codigoBarras: '', nome: 'Leite Ninho', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 6 },
-  { id: 101, ativo: true, tipo: 'Complemento', codigoInterno: 'AD02', codigoBarras: '', nome: 'Granola', preco: 2.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 6 },
-  { id: 102, ativo: true, tipo: 'Complemento', codigoInterno: 'AD03', codigoBarras: '', nome: 'Paçoca', preco: 2.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 6 },
-  { id: 103, ativo: true, tipo: 'Complemento', codigoInterno: 'AD04', codigoBarras: '', nome: 'Morango', preco: 4.00, custo: 1.00, unidadeMedida: 'POR', grupoProdutoId: 6 },
-  { id: 104, ativo: true, tipo: 'Complemento', codigoInterno: 'AD05', codigoBarras: '', nome: 'Banana', preco: 2.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 6 },
-  { id: 105, ativo: true, tipo: 'Complemento', codigoInterno: 'AD06', codigoBarras: '', nome: 'Nutella (Premium)', preco: 6.00, custo: 2.50, unidadeMedida: 'POR', grupoProdutoId: 6 },
-];
-
-export const INITIAL_ADDON_CONFIGS: ConfiguracaoAdicional[] = [
-  // Açaí 300ml: 3 Free items
-  { 
-    id: 1, 
-    produtoPrincipalId: 5, 
-    cobrarApartirDe: 3, 
-    itens: [
-      { produtoComplementoId: 100, cobrarSempre: false }, // Leite Ninho
-      { produtoComplementoId: 101, cobrarSempre: false }, // Granola
-      { produtoComplementoId: 102, cobrarSempre: false }, // Paçoca
-      { produtoComplementoId: 103, cobrarSempre: true },  // Morango (Cobrar Sempre example)
-      { produtoComplementoId: 104, cobrarSempre: false }, // Banana
-      { produtoComplementoId: 105, cobrarSempre: true },  // Nutella (Cobrar Sempre)
-    ] 
-  },
-  // Açaí 500ml: 5 Free items
-  { 
-    id: 2, 
-    produtoPrincipalId: 6, 
-    cobrarApartirDe: 5, 
-    itens: [
-      { produtoComplementoId: 100, cobrarSempre: false },
-      { produtoComplementoId: 101, cobrarSempre: false },
-      { produtoComplementoId: 102, cobrarSempre: false },
-      { produtoComplementoId: 103, cobrarSempre: false },
-      { produtoComplementoId: 104, cobrarSempre: false },
-    ] 
-  }
-];
-
-export const INITIAL_CLIENTS: Cliente[] = [
-  { 
-    id: 1, 
-    tipoPessoa: 'Física',
-    nome: 'João Silva', 
-    cpfCnpj: '123.456.789-00',
-    telefone: '(11) 99999-9999', 
-    endereco: 'Rua das Flores',
-    numero: '123',
-    bairro: 'Centro',
-    complemento: 'Apto 101'
-  },
-  { 
-    id: 2, 
-    tipoPessoa: 'Física',
-    nome: 'Maria Oliveira', 
-    cpfCnpj: '987.654.321-99',
-    telefone: '(11) 98888-8888', 
-    endereco: 'Av. Paulista',
-    numero: '1000',
-    bairro: 'Bela Vista',
-    complemento: ''
-  },
-];
-
-export const INITIAL_USERS: Usuario[] = [
-  { id: 1, nome: 'Administrador do Sistema', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true },
-  { id: 2, nome: 'Operador de Caixa', login: 'operador', senha: '123', perfil: 'Padrão', ativo: true },
-];
-
-// Helper to simulate DB operations
-class MockDbContext {
-  private caixa: CaixaMovimento[] = [];
+class MockDB {
+  private produtos: Produto[] = [];
+  private grupos: GrupoProduto[] = [];
+  private clientes: Cliente[] = [];
   private pedidos: Pedido[] = [];
-  private produtos: Produto[] = [...INITIAL_PRODUCTS];
-  private grupos: GrupoProduto[] = [...INITIAL_GROUPS];
-  private clientes: Cliente[] = [...INITIAL_CLIENTS];
-  private formasPagamento: FormaPagamento[] = [...INITIAL_PAYMENT_METHODS];
-  private configAdicionais: ConfiguracaoAdicional[] = [...INITIAL_ADDON_CONFIGS];
-  private usuarios: Usuario[] = [...INITIAL_USERS];
+  private usuarios: Usuario[] = [];
+  private caixas: Caixa[] = [];
+  private sessoes: SessaoCaixa[] = [];
+  private caixaMovimentos: CaixaMovimento[] = [];
+  private formasPagamento: FormaPagamento[] = [];
+  private configuracoesAdicionais: ConfiguracaoAdicional[] = [];
 
   constructor() {
-    // Seed initial cash opening
-    this.addMovimento({
-      id: 1,
-      data: new Date().toISOString(),
-      tipoOperacao: TipoOperacaoCaixa.Abertura,
-      valor: 150.00,
-      observacao: 'Abertura de Caixa Inicial'
-    });
+    this.seed();
   }
 
-  // --- Auth ---
-  authenticate(login: string, senha: string): Usuario | null {
-    const user = this.usuarios.find(u => u.login === login && u.senha === senha && u.ativo);
-    return user || null;
+  private seed() {
+    this.grupos = [{ id: 1, nome: 'Lanches' }, { id: 2, nome: 'Bebidas' }];
+    this.produtos = [
+        { id: 1, ativo: true, tipo: 'Principal', codigoInterno: '100', codigoBarras: '7890001', nome: 'X-Burger', preco: 25.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
+        { id: 2, ativo: true, tipo: 'Principal', codigoInterno: '101', codigoBarras: '7890002', nome: 'Coca-Cola 350ml', preco: 6.00, custo: 3.00, unidadeMedida: 'UN', grupoProdutoId: 2 },
+        { id: 3, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD1', codigoBarras: '', nome: 'Bacon Extra', preco: 5.00, custo: 2.00, unidadeMedida: 'UN', grupoProdutoId: 1 }
+    ];
+    this.formasPagamento = [
+        { id: 1, nome: 'Dinheiro', ativo: true },
+        { id: 2, nome: 'Cartão de Crédito', ativo: true },
+        { id: 3, nome: 'Cartão de Débito', ativo: true },
+        { id: 4, nome: 'PIX', ativo: true }
+    ];
+    this.caixas = [{ id: 1, nome: 'Caixa 01', ativo: true }];
+    this.usuarios = [{ id: 1, nome: 'Administrador', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true }];
+    this.configuracoesAdicionais = [];
+    this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', endereco: '', numero: '', complemento: '', bairro: '' }];
   }
 
-  // --- Caixa ---
-  getSaldoCaixa(): number {
-    return this.caixa.reduce((acc, mov) => {
-      if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria) {
-        return acc - mov.valor;
+  // --- GETTERS ---
+  getProdutos() { return this.produtos; }
+  getGrupos() { return this.grupos; }
+  getClientes() { return this.clientes; }
+  getPedidos() { return this.pedidos; }
+  getUsuarios() { return this.usuarios; }
+  getCaixas() { return this.caixas; }
+  getFormasPagamento() { return this.formasPagamento; }
+  getConfiguracoesAdicionais() { return this.configuracoesAdicionais; }
+
+  getPedidoById(id: number) { return this.pedidos.find(p => p.id === id); }
+
+  getSaldoCaixa() { 
+      // Simplified: Just sum of open sessions balance
+      const openSessions = this.sessoes.filter(s => s.status === StatusSessao.Aberta);
+      let total = 0;
+      for(const s of openSessions) {
+          total += this.getSaldoSessao(s.id);
       }
-      return acc + mov.valor;
-    }, 0);
+      return total;
   }
 
-  addMovimento(movimento: CaixaMovimento) {
-    this.caixa.push(movimento);
+  getVendasDoDia() {
+      const today = new Date().toISOString().split('T')[0];
+      return this.pedidos
+        .filter(p => p.data.startsWith(today) && p.status !== PedidoStatus.Cancelado)
+        .reduce((acc, p) => acc + p.total, 0);
   }
 
-  getMovimentos() {
-    return [...this.caixa].reverse(); // Newest first
-  }
+  // --- SAVERS / DELETERS ---
 
-  // --- Pedidos ---
+  saveProduto(item: Produto) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.produtos.map(p => p.id)) + 1;
+          this.produtos.push(item);
+      } else {
+          const index = this.produtos.findIndex(p => p.id === item.id);
+          if(index >= 0) this.produtos[index] = item;
+      }
+  }
+  deleteProduto(id: number) { this.produtos = this.produtos.filter(p => p.id !== id); }
+
+  saveCliente(item: Cliente) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.clientes.map(p => p.id)) + 1;
+          this.clientes.push(item);
+      } else {
+          const index = this.clientes.findIndex(p => p.id === item.id);
+          if(index >= 0) this.clientes[index] = item;
+      }
+  }
+  deleteCliente(id: number) { this.clientes = this.clientes.filter(p => p.id !== id); }
+
+  saveFormaPagamento(item: FormaPagamento) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.formasPagamento.map(p => p.id)) + 1;
+          this.formasPagamento.push(item);
+      } else {
+          const index = this.formasPagamento.findIndex(p => p.id === item.id);
+          if(index >= 0) this.formasPagamento[index] = item;
+      }
+  }
+  deleteFormaPagamento(id: number) { this.formasPagamento = this.formasPagamento.filter(p => p.id !== id); }
+
+  saveConfiguracaoAdicional(item: ConfiguracaoAdicional) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.configuracoesAdicionais.map(p => p.id)) + 1;
+          this.configuracoesAdicionais.push(item);
+      } else {
+          const index = this.configuracoesAdicionais.findIndex(p => p.id === item.id);
+          if(index >= 0) this.configuracoesAdicionais[index] = item;
+      }
+  }
+  deleteConfiguracaoAdicional(id: number) { this.configuracoesAdicionais = this.configuracoesAdicionais.filter(p => p.id !== id); }
+
+  saveUsuario(item: Usuario) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.usuarios.map(p => p.id)) + 1;
+          this.usuarios.push(item);
+      } else {
+          const index = this.usuarios.findIndex(p => p.id === item.id);
+          if(index >= 0) this.usuarios[index] = item;
+      }
+  }
+  deleteUsuario(id: number) { this.usuarios = this.usuarios.filter(p => p.id !== id); }
+
+  saveCaixa(item: Caixa) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.caixas.map(p => p.id)) + 1;
+          this.caixas.push(item);
+      } else {
+          const index = this.caixas.findIndex(p => p.id === item.id);
+          if(index >= 0) this.caixas[index] = item;
+      }
+  }
+  deleteCaixa(id: number) { this.caixas = this.caixas.filter(p => p.id !== id); }
+
   savePedido(pedido: Pedido) {
-    const index = this.pedidos.findIndex(p => p.id === pedido.id);
-    
-    if (index >= 0) {
-      // Update existing
-      const existing = this.pedidos[index];
-      
-      // Safety Check: Calculate total paid from DB to ensure status integrity
-      const totalPaid = existing.pagamentos ? existing.pagamentos.reduce((acc, p) => acc + p.valor, 0) : 0;
-      let finalStatus = pedido.status;
-
-      // If fully paid (allowing for float precision), force status to Pago
-      // This prevents the UI from accidentally reverting a Paid order to Pendente via the Save button
-      if (totalPaid >= (pedido.total - 0.01) && pedido.status !== PedidoStatus.Cancelado) {
-          finalStatus = PedidoStatus.Pago;
+      // Check if updating
+      const index = this.pedidos.findIndex(p => p.id === pedido.id);
+      if(index >= 0) {
+          this.pedidos[index] = pedido;
+      } else {
+          this.pedidos.push(pedido);
       }
-
-      this.pedidos[index] = { 
-          ...pedido, 
-          pagamentos: existing.pagamentos, // Always preserve DB payments, never trust UI to send full payment history in this mock
-          status: finalStatus
-      };
-    } else {
-      // Insert new
-      this.pedidos.push({ ...pedido, pagamentos: [] });
-    }
   }
 
-  // Handle Partial Payments
-  addPagamento(pedidoId: number, pagamento: Pagamento) {
-    const pedido = this.pedidos.find(p => p.id === pedidoId);
-    if (!pedido) throw new Error("Pedido não encontrado");
-
-    // 1. Add Payment to Order
-    if (!pedido.pagamentos) pedido.pagamentos = [];
-    pedido.pagamentos.push(pagamento);
-
-    // 2. Add Cash Movement IMMEDIATELY
-    this.addMovimento({
-      id: Math.floor(Math.random() * 1000000),
-      data: new Date().toISOString(),
-      tipoOperacao: TipoOperacaoCaixa.Vendas,
-      valor: pagamento.valor,
-      observacao: `Recebimento Pedido #${pedido.id} (${pedido.tipoAtendimento}) - ${pagamento.formaPagamentoNome} (Parcial)`
-    });
-
-    // 3. Check Status
-    const totalPago = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
-    // Floating point tolerance
-    if (totalPago >= (pedido.total - 0.01)) {
-       pedido.status = PedidoStatus.Pago;
-    } else {
-       if(pedido.status !== PedidoStatus.Pago && pedido.status !== PedidoStatus.Cancelado) {
-         pedido.status = PedidoStatus.Pendente;
-       }
-    }
+  // --- AUTH ---
+  authenticate(login: string, pass: string) {
+      return this.usuarios.find(u => u.login === login && u.senha === pass && u.ativo);
   }
 
-  // NEW: Void/Cancel Payment
-  cancelPagamento(pedidoId: number, pagamentoId: string) {
-    const pedido = this.pedidos.find(p => p.id === pedidoId);
-    if (!pedido) throw new Error("Pedido não encontrado");
+  // --- CASH CONTROL ---
+  getSessaoAberta(userId: number) {
+      return this.sessoes.find(s => s.usuarioId === userId && s.status === StatusSessao.Aberta);
+  }
 
-    if (!pedido.pagamentos) pedido.pagamentos = [];
-    
-    const pagamento = pedido.pagamentos.find(p => p.id === pagamentoId);
-    if (!pagamento) throw new Error("Pagamento não encontrado");
-
-    // 1. Create Reversal Movement (Sangria or Negative Sale)
-    this.addMovimento({
-      id: Math.floor(Math.random() * 1000000),
-      data: new Date().toISOString(),
-      tipoOperacao: TipoOperacaoCaixa.Sangria, // Use Sangria as 'Reversal' for simplicity in this mock
-      valor: pagamento.valor,
-      observacao: `ESTORNO Recebimento Pedido #${pedido.id} - ${pagamento.formaPagamentoNome}`
-    });
-
-    // 2. Remove Payment from Order
-    pedido.pagamentos = pedido.pagamentos.filter(p => p.id !== pagamentoId);
-
-    // 3. Recalculate Status - ALWAYS revert to Pendente if it drops below total
-    const totalPago = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
-    
-    if (pedido.status !== PedidoStatus.Cancelado) {
-        if (totalPago < (pedido.total - 0.01)) {
-            pedido.status = PedidoStatus.Pendente;
+  getSaldoSessao(sessaoId: number): number {
+    return this.caixaMovimentos
+      .filter(m => m.sessaoId === sessaoId)
+      .reduce((acc, mov) => {
+        if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento) {
+          return acc - mov.valor;
         }
-    }
-  }
-
-  getPedidos() {
-    return [...this.pedidos].reverse();
+        return acc + mov.valor;
+      }, 0);
   }
   
-  getPedidoById(id: number) {
-    return this.pedidos.find(p => p.id === id);
+  abrirSessao(userId: number, caixaId: number, saldoInicial: number) {
+      if(this.getSessaoAberta(userId)) throw new Error("Usuário já possui sessão aberta.");
+      
+      const caixa = this.caixas.find(c => c.id === caixaId);
+      const usuario = this.usuarios.find(u => u.id === userId);
+      
+      const novaSessao: SessaoCaixa = {
+          id: Math.max(0, ...this.sessoes.map(s => s.id)) + 1,
+          caixaId,
+          caixaNome: caixa?.nome || 'Caixa',
+          usuarioId: userId,
+          usuarioNome: usuario?.nome || 'User',
+          dataAbertura: new Date().toISOString(),
+          saldoInicial,
+          status: StatusSessao.Aberta
+      };
+      
+      this.sessoes.push(novaSessao);
+      
+      // Register initial balance as movement
+      this.lancarMovimento(novaSessao.id, TipoOperacaoCaixa.Abertura, saldoInicial, 'Abertura de Caixa');
+      
+      return novaSessao;
   }
   
-  getVendasDoDia(): number {
-      const today = new Date().toDateString();
-      // Sum all payments made today, regardless of order status
-      // This is a more accurate cash flow metric
-      return this.caixa
-        .filter(m => new Date(m.data).toDateString() === today && m.tipoOperacao === TipoOperacaoCaixa.Vendas)
-        .reduce((acc, m) => acc + m.valor, 0);
-  }
-
-  // --- Produtos ---
-  getProdutos() {
-    return [...this.produtos];
-  }
-
-  getGrupos() {
-    return [...this.grupos];
-  }
-
-  saveProduto(produto: Produto) {
-    if (produto.id === 0) {
-      // Create
-      const newId = Math.max(...this.produtos.map(p => p.id), 0) + 1;
-      this.produtos.push({ ...produto, id: newId });
-    } else {
-      // Update
-      this.produtos = this.produtos.map(p => p.id === produto.id ? produto : p);
-    }
-  }
-
-  deleteProduto(id: number) {
-    this.produtos = this.produtos.filter(p => p.id !== id);
-    // Also delete any addon config for this product if it was a main product
-    this.configAdicionais = this.configAdicionais.filter(c => c.produtoPrincipalId !== id);
-  }
-
-  // --- Clientes ---
-  getClientes() {
-    return [...this.clientes];
-  }
-
-  saveCliente(cliente: Cliente) {
-    if (cliente.id === 0) {
-      // Create
-      const newId = Math.max(...this.clientes.map(c => c.id), 0) + 1;
-      this.clientes.push({ ...cliente, id: newId });
-    } else {
-      // Update
-      this.clientes = this.clientes.map(c => c.id === cliente.id ? cliente : c);
-    }
-  }
-
-  deleteCliente(id: number) {
-    this.clientes = this.clientes.filter(c => c.id !== id);
-  }
-
-  // --- Formas de Pagamento ---
-  getFormasPagamento() {
-    return [...this.formasPagamento];
-  }
-
-  saveFormaPagamento(forma: FormaPagamento) {
-    if (forma.id === 0) {
-      const newId = Math.max(...this.formasPagamento.map(f => f.id), 0) + 1;
-      this.formasPagamento.push({ ...forma, id: newId });
-    } else {
-      this.formasPagamento = this.formasPagamento.map(f => f.id === forma.id ? forma : f);
-    }
-  }
-
-  deleteFormaPagamento(id: number) {
-    this.formasPagamento = this.formasPagamento.filter(f => f.id !== id);
-  }
-
-  // --- Configuracao Adicionais ---
-  getConfiguracoesAdicionais() {
-    return [...this.configAdicionais];
+  fecharSessao(sessaoId: number, conferencia: any) {
+      const sessaoIndex = this.sessoes.findIndex(s => s.id === sessaoId);
+      if(sessaoIndex < 0) throw new Error("Sessão não encontrada");
+      
+      const sessao = this.sessoes[sessaoIndex];
+      const saldoFinalCalculado = this.getSaldoSessao(sessaoId);
+      const totalContado = conferencia.dinheiro + conferencia.cartaoCredito + conferencia.cartaoDebito + conferencia.pix + conferencia.voucher + conferencia.outros;
+      
+      this.sessoes[sessaoIndex] = {
+          ...sessao,
+          status: StatusSessao.Fechada,
+          dataFechamento: new Date().toISOString(),
+          saldoFinal: saldoFinalCalculado,
+          conferencia,
+          quebraDeCaixa: totalContado - saldoFinalCalculado
+      };
+      
+      // Lançar movimento de fechamento (Zera o saldo lógico para fins de registro?) 
+      // Usually closing doesn't create a movement that reduces balance unless it's a cash withdrawal for deposit.
+      // Let's assume we just close status.
   }
   
-  getConfiguracaoByProdutoPrincipal(produtoId: number): ConfiguracaoAdicional | undefined {
-    return this.configAdicionais.find(c => c.produtoPrincipalId === produtoId);
+  lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string) {
+      const mov: CaixaMovimento = {
+          id: Math.max(0, ...this.caixaMovimentos.map(m => m.id)) + 1,
+          sessaoId,
+          data: new Date().toISOString(),
+          tipoOperacao: tipo,
+          valor,
+          observacao: obs
+      };
+      this.caixaMovimentos.push(mov);
+  }
+  
+  getCaixaMovimentos(sessaoId: number) {
+      return this.caixaMovimentos.filter(m => m.sessaoId === sessaoId).sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime());
   }
 
-  saveConfiguracaoAdicional(config: ConfiguracaoAdicional) {
-    if (config.id === 0) {
-       const newId = Math.max(...this.configAdicionais.map(c => c.id), 0) + 1;
-       this.configAdicionais.push({ ...config, id: newId });
-    } else {
-       this.configAdicionais = this.configAdicionais.map(c => c.id === config.id ? config : c);
-    }
+  // --- PAYMENT PROCESSING ---
+  addPagamento(orderId: number, payment: Pagamento, userId: number) {
+      const sessao = this.getSessaoAberta(userId);
+      if(!sessao) throw new Error("Caixa Fechado. Abra o caixa para receber.");
+      
+      const pedido = this.getPedidoById(orderId);
+      if(!pedido) throw new Error("Pedido não encontrado");
+      
+      // Add payment to order
+      pedido.pagamentos.push(payment);
+      
+      // Update Order Status Logic? Handled in POS usually, but let's ensure consistency if we want
+      // MockDb is simple storage usually.
+      
+      // Register Movement in Cash
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`);
   }
-
-  deleteConfiguracaoAdicional(id: number) {
-    this.configAdicionais = this.configAdicionais.filter(c => c.id !== id);
-  }
-
-  // --- Usuários ---
-  getUsuarios() {
-    return [...this.usuarios];
-  }
-
-  saveUsuario(usuario: Usuario) {
-    if (usuario.id === 0) {
-      const newId = Math.max(...this.usuarios.map(u => u.id), 0) + 1;
-      this.usuarios.push({ ...usuario, id: newId });
-    } else {
-      this.usuarios = this.usuarios.map(u => u.id === usuario.id ? usuario : u);
-    }
-  }
-
-  deleteUsuario(id: number) {
-    this.usuarios = this.usuarios.filter(u => u.id !== id);
+  
+  cancelPagamento(orderId: number, paymentId: string, userId: number) {
+      const sessao = this.getSessaoAberta(userId);
+      if(!sessao) throw new Error("Caixa Fechado. Abra o caixa para estornar.");
+      
+      const pedido = this.getPedidoById(orderId);
+      if(!pedido) throw new Error("Pedido não encontrado");
+      
+      const paymentIndex = pedido.pagamentos.findIndex(p => p.id === paymentId);
+      if(paymentIndex < 0) throw new Error("Pagamento não encontrado");
+      
+      const payment = pedido.pagamentos[paymentIndex];
+      
+      // Remove payment
+      pedido.pagamentos.splice(paymentIndex, 1);
+      pedido.status = PedidoStatus.Pendente; // Revert status
+      
+      // Register negative movement (Sangria/Estorno)
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Sangria, payment.valor, `ESTORNO Pedido #${orderId} - ${payment.formaPagamentoNome}`);
   }
 }
 
-export const db = new MockDbContext();
+export const db = new MockDB();

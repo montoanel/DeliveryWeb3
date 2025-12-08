@@ -1,11 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
-import { Usuario, PerfilAcesso } from '../types';
-import { Plus, Edit2, Trash2, Save, X, UserCog, Shield, CheckCircle } from 'lucide-react';
+import { Usuario, PerfilAcesso, Caixa } from '../types';
+import { Plus, Edit2, Trash2, Save, X, UserCog, Shield, CheckCircle, Monitor } from 'lucide-react';
 
 const Users: React.FC = () => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [users, setUsers] = useState<Usuario[]>([]);
+  const [terminals, setTerminals] = useState<Caixa[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Form State
@@ -15,7 +17,8 @@ const Users: React.FC = () => {
     login: '',
     senha: '',
     perfil: 'Padrão',
-    ativo: true
+    ativo: true,
+    caixaPadraoId: undefined
   };
   const [formData, setFormData] = useState<Usuario>(initialFormState);
 
@@ -25,6 +28,7 @@ const Users: React.FC = () => {
 
   const loadData = () => {
     setUsers(db.getUsuarios());
+    setTerminals(db.getCaixas());
   };
 
   const handleNew = () => {
@@ -131,8 +135,25 @@ const Users: React.FC = () => {
                       <option value="Padrão">Padrão</option>
                     </select>
                 </div>
+             </div>
+
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Caixa Padrão</label>
+                <div className="relative">
+                    <Monitor className="absolute left-3 top-3 text-gray-400" size={16}/>
+                    <select 
+                      value={formData.caixaPadraoId || ''}
+                      onChange={(e) => setFormData({...formData, caixaPadraoId: e.target.value ? parseInt(e.target.value) : undefined})}
+                      className="w-full pl-9 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none bg-white"
+                    >
+                      <option value="">Selecione um caixa...</option>
+                      {terminals.map(t => (
+                        <option key={t.id} value={t.id}>{t.nome}</option>
+                      ))}
+                    </select>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                   * Futuramente definirá as permissões do sistema.
+                   * Sugere este caixa na abertura.
                 </p>
              </div>
 
@@ -192,11 +213,14 @@ const Users: React.FC = () => {
               <th className="p-4 font-semibold text-gray-600 text-sm">Nome</th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Login</th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Perfil</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Caixa Padrão</th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredUsers.map(user => (
+            {filteredUsers.map(user => {
+              const term = terminals.find(t => t.id === user.caixaPadraoId);
+              return (
               <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                 <td className="p-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -209,6 +233,9 @@ const Users: React.FC = () => {
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold border ${user.perfil === 'Administrador' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-700 border-gray-200'}`}>
                         <Shield size={12}/> {user.perfil}
                     </span>
+                </td>
+                <td className="p-4 text-sm text-gray-600">
+                    {term ? term.nome : '-'}
                 </td>
                 <td className="p-4 text-right">
                   <div className="flex items-center justify-end gap-2">
@@ -229,10 +256,10 @@ const Users: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            ))}
+            )})}
             {filteredUsers.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-400">
+                <td colSpan={6} className="p-8 text-center text-gray-400">
                   Nenhum usuário encontrado.
                 </td>
               </tr>

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { Produto, GrupoProduto, TipoProduto } from '../types';
-import { Plus, Search, Edit2, Trash2, Save, X, Package } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Save, X, Package, Copy } from 'lucide-react';
 
 const Products: React.FC = () => {
   const [view, setView] = useState<'list' | 'form'>('list');
@@ -35,6 +36,18 @@ const Products: React.FC = () => {
 
   const handleEdit = (product: Produto) => {
     setFormData({ ...product });
+    setView('form');
+  };
+
+  const handleClone = (product: Produto) => {
+    // Clona o objeto, reseta o ID para 0 (novo) e limpa códigos únicos
+    setFormData({
+        ...product,
+        id: 0, 
+        nome: `${product.nome} (Cópia)`,
+        codigoInterno: '',
+        codigoBarras: ''
+    });
     setView('form');
   };
 
@@ -290,6 +303,13 @@ const Products: React.FC = () => {
                 <td className="p-4 font-medium text-gray-800">R$ {product.preco.toFixed(2)}</td>
                 <td className="p-4 text-right">
                   <div className="flex items-center justify-end gap-2">
+                    <button 
+                      onClick={() => handleClone(product)}
+                      className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      title="Clonar / Duplicar"
+                    >
+                      <Copy size={18} />
+                    </button>
                     <button 
                       onClick={() => handleEdit(product)}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

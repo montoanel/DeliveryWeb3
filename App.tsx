@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
 import CashControl from './components/CashControl';
@@ -9,6 +10,7 @@ import Clients from './components/Clients';
 import PaymentMethods from './components/PaymentMethods';
 import AddonConfig from './components/AddonConfig';
 import UsersComponent from './components/Users';
+import Terminals from './components/Terminals';
 import Login from './components/Login';
 import { Usuario } from './types';
 
@@ -65,6 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             <SidebarLink to="/config-adicionais" icon={Layers} label={sidebarOpen ? "Config. Adicionais" : ""} />
             <SidebarLink to="/clientes" icon={Users} label={sidebarOpen ? "Clientes" : ""} />
             <SidebarLink to="/formas-pagamento" icon={CreditCard} label={sidebarOpen ? "Formas de Pagamento" : ""} />
+            <SidebarLink to="/terminais" icon={Monitor} label={sidebarOpen ? "Terminais / Caixas" : ""} />
             <SidebarLink to="/usuarios" icon={UserCog} label={sidebarOpen ? "Usuários" : ""} />
           </div>
         </nav>
@@ -127,12 +130,13 @@ const App: React.FC = () => {
       <Layout user={user} onLogout={handleLogout}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/vendas" element={<POS />} />
-          <Route path="/caixa" element={<CashControl />} />
+          <Route path="/vendas" element={<POS user={user} />} />
+          <Route path="/caixa" element={<CashControl user={user} />} />
           <Route path="/produtos" element={<Products />} />
           <Route path="/config-adicionais" element={<AddonConfig />} />
           <Route path="/clientes" element={<Clients />} />
           <Route path="/formas-pagamento" element={<PaymentMethods />} />
+          <Route path="/terminais" element={<Terminals />} />
           <Route path="/usuarios" element={<UsersComponent />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

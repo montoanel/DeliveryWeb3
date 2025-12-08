@@ -116,8 +116,47 @@ export interface Pedido {
   troco?: number;
 }
 
+// --- CASH CONTROL TYPES ---
+
+export interface Caixa {
+  id: number;
+  nome: string;
+  ativo: boolean;
+}
+
+export enum StatusSessao {
+  Aberta = 'Aberta',
+  Fechada = 'Fechada'
+}
+
+export interface ConferenciaFechamento {
+  dinheiro: number;
+  cartaoCredito: number;
+  cartaoDebito: number;
+  pix: number;
+  voucher: number;
+  outros: number;
+  observacoes: string;
+}
+
+export interface SessaoCaixa {
+  id: number;
+  caixaId: number;
+  caixaNome: string;
+  usuarioId: number;
+  usuarioNome: string;
+  dataAbertura: string;
+  dataFechamento?: string;
+  saldoInicial: number;
+  saldoFinal?: number; // Calculated by system
+  quebraDeCaixa?: number; // Difference between calculated and counted
+  status: StatusSessao;
+  conferencia?: ConferenciaFechamento;
+}
+
 export interface CaixaMovimento {
   id: number;
+  sessaoId: number; // Linked to a session
   data: string;
   tipoOperacao: TipoOperacaoCaixa;
   valor: number;
@@ -134,4 +173,5 @@ export interface Usuario {
   senha?: string; // Optional when listing to avoid exposing
   perfil: PerfilAcesso;
   ativo: boolean;
+  caixaPadraoId?: number; // Link to default terminal
 }
