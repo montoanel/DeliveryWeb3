@@ -137,6 +137,12 @@ class MockDB {
   deleteCaixa(id: number) { this.caixas = this.caixas.filter(p => p.id !== id); }
 
   savePedido(pedido: Pedido) {
+      // Safety Check: Force status to Paid if amount is covered
+      const totalPaid = pedido.pagamentos?.reduce((acc, p) => acc + p.valor, 0) || 0;
+      if (totalPaid >= (pedido.total - 0.01)) {
+          pedido.status = PedidoStatus.Pago;
+      }
+
       // Check if updating
       const index = this.pedidos.findIndex(p => p.id === pedido.id);
       if(index >= 0) {
@@ -209,9 +215,8 @@ class MockDB {
           quebraDeCaixa: totalContado - saldoFinalCalculado
       };
       
-      // Lançar movimento de fechamento (Zera o saldo lógico para fins de registro?) 
-      // Usually closing doesn't create a movement that reduces balance unless it's a cash withdrawal for deposit.
-      // Let's assume we just close status.
+      // Closing zeros the logical balance for the session history
+      this.lancarMovimento(sessaoId, TipoOperacaoCaixa.Fechamento, saldoFinalCalculado, 'Fechamento de Caixa');
   }
   
   lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string) {
@@ -241,8 +246,11 @@ class MockDB {
       // Add payment to order
       pedido.pagamentos.push(payment);
       
-      // Update Order Status Logic? Handled in POS usually, but let's ensure consistency if we want
-      // MockDb is simple storage usually.
+      // CHECK: Update Status automatically if fully paid
+      const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
+      if (totalPaid >= (pedido.total - 0.01)) {
+          pedido.status = PedidoStatus.Pago;
+      }
       
       // Register Movement in Cash
       this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`);
@@ -255,6 +263,8 @@ class MockDB {
       const pedido = this.getPedidoById(orderId);
       if(!pedido) throw new Error("Pedido não encontrado");
       
+      if (!pedido.pagamentos) pedido.pagamentos = [];
+
       const paymentIndex = pedido.pagamentos.findIndex(p => p.id === paymentId);
       if(paymentIndex < 0) throw new Error("Pagamento não encontrado");
       
@@ -262,7 +272,9 @@ class MockDB {
       
       // Remove payment
       pedido.pagamentos.splice(paymentIndex, 1);
-      pedido.status = PedidoStatus.Pendente; // Revert status
+      
+      // Always revert status to Pendente if payment is removed
+      pedido.status = PedidoStatus.Pendente; 
       
       // Register negative movement (Sangria/Estorno)
       this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Sangria, payment.valor, `ESTORNO Pedido #${orderId} - ${payment.formaPagamentoNome}`);
