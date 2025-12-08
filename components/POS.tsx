@@ -409,26 +409,30 @@ const POS: React.FC = () => {
     setEditingOrderId(id); // Ensure we stay on edit mode with valid ID
     refreshData();
     
-    alert(`Pedido #${id} salvo com sucesso!`);
-    
-    // Offer to print
-    if(confirm("Deseja imprimir o pedido?")) {
-        // We set print data based on the saved state
-        setPrintData({
-            type: 'ORDER',
-            orderId: id,
-            date: pedido.data,
-            clientName: selectedClient?.nome || 'Consumidor Final',
-            clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
-            deliveryType: currentOrderType,
-            items: cart,
-            total: total,
-            payments: existingPayments,
-            obs: observation
-        });
-    } else {
+    // UI Update logic with delay to prevent modal/alert conflicts
+    setTimeout(() => {
+        alert(`Pedido #${id} salvo com sucesso!`);
+        
+        // Offer to print
+        if(confirm("Deseja imprimir o pedido?")) {
+            // We set print data based on the saved state
+            setPrintData({
+                type: 'ORDER',
+                orderId: id,
+                date: pedido.data,
+                clientName: selectedClient?.nome || 'Consumidor Final',
+                clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
+                deliveryType: currentOrderType,
+                items: cart,
+                total: total,
+                payments: existingPayments,
+                obs: observation
+            });
+        }
+        
+        // Always return to list to ensure clean state
         setView('list');
-    }
+    }, 100);
   };
 
   // 2. Open Payment Modal (For Finalizing)
@@ -563,27 +567,32 @@ const POS: React.FC = () => {
         const newRemaining = updatedOrder.total - newTotalPaid;
         
         if (newRemaining <= 0.01) {
-            // Fully Paid
+            // Fully Paid - Close Modal FIRST
             setIsPaymentModalOpen(false);
-            alert(`Atendimento #${orderId} finalizado com sucesso!`);
-            
-            // Offer to print
-            if(confirm("Deseja imprimir o comprovante?")) {
-                setPrintData({
-                    type: 'ORDER',
-                    orderId: orderId,
-                    date: updatedOrder.data,
-                    clientName: selectedClient?.nome || 'Consumidor Final',
-                    clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
-                    deliveryType: currentOrderType,
-                    items: cart,
-                    total: total,
-                    payments: updatedOrder.pagamentos,
-                    obs: observation
-                });
-            } else {
+
+            // Use setTimeout to ensure the modal closes visually before blocking alerts/print
+            setTimeout(() => {
+                alert(`Atendimento #${orderId} finalizado com sucesso!`);
+                
+                // Offer to print
+                if(confirm("Deseja imprimir o comprovante?")) {
+                    setPrintData({
+                        type: 'ORDER',
+                        orderId: orderId,
+                        date: updatedOrder.data,
+                        clientName: selectedClient?.nome || 'Consumidor Final',
+                        clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
+                        deliveryType: currentOrderType,
+                        items: cart,
+                        total: total,
+                        payments: updatedOrder.pagamentos,
+                        obs: observation
+                    });
+                }
+                
+                // Always return to list to ensure clean state
                 setView('list');
-            }
+            }, 100);
         } else {
             // Still Partial - Reset input to new remaining
             setPaymentInputValue(newRemaining.toFixed(2));
