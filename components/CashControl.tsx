@@ -252,6 +252,7 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
             <tbody className="divide-y divide-gray-100">
               {history.map((mov) => {
                 const isNegative = mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento || mov.tipoOperacao === TipoOperacaoCaixa.Troco;
+                const isNeutral = mov.tipoOperacao === TipoOperacaoCaixa.UsoCredito;
                 return (
                 <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
                   <td className="p-4 text-sm text-gray-600">
@@ -259,10 +260,10 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
                   </td>
                   <td className="p-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-                      ${(mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Troco) ? 'bg-orange-100 text-orange-700' : 
-                        mov.tipoOperacao === TipoOperacaoCaixa.Vendas ? 'bg-green-100 text-green-700' :
+                      ${isNegative ? 'bg-orange-100 text-orange-700' : 
+                        isNeutral ? 'bg-blue-100 text-blue-700' :
                         mov.tipoOperacao === TipoOperacaoCaixa.Fechamento ? 'bg-red-100 text-red-700' :
-                        'bg-gray-100 text-gray-700'
+                        'bg-green-100 text-green-700'
                       }`}
                     >
                       {getIcon(mov.tipoOperacao)}
@@ -273,9 +274,9 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
                     {mov.observacao || '-'}
                   </td>
                   <td className={`p-4 text-sm font-bold text-right ${
-                    isNegative ? 'text-red-600' : 'text-green-600'
+                    isNegative ? 'text-red-600' : isNeutral ? 'text-blue-600' : 'text-green-600'
                   }`}>
-                    {isNegative ? '-' : '+'} R$ {mov.valor.toFixed(2)}
+                    {isNegative ? '-' : isNeutral ? '' : '+'} R$ {mov.valor.toFixed(2)}
                   </td>
                 </tr>
               )})}

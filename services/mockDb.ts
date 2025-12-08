@@ -216,6 +216,10 @@ class MockDB {
         if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento || mov.tipoOperacao === TipoOperacaoCaixa.Troco) {
           return acc - mov.valor;
         }
+        // Critical: Using Credit should NOT increase physical cash balance
+        if (mov.tipoOperacao === TipoOperacaoCaixa.UsoCredito) {
+            return acc;
+        }
         return acc + mov.valor;
       }, 0);
   }
