@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { ConfiguracaoAdicional, Produto } from '../types';
-import { Plus, Edit2, Trash2, Save, X, Layers, ArrowRight, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, ArrowRight, AlertCircle, DollarSign, Check } from 'lucide-react';
 
 const AddonConfig: React.FC = () => {
   const [configs, setConfigs] = useState<ConfiguracaoAdicional[]>([]);
@@ -128,20 +128,24 @@ const AddonConfig: React.FC = () => {
              </div>
 
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Regra de Gratuidade (Cobrar a partir de:)</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Regra de Gratuidade</label>
                 <div className="flex items-center gap-3">
-                    <input 
-                    type="number" 
-                    min="0"
-                    value={formData.cobrarApartirDe}
-                    onChange={(e) => setFormData({...formData, cobrarApartirDe: parseInt(e.target.value)})}
-                    className="w-24 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-center"
-                    />
-                    <div className="text-sm text-gray-600">
-                        <p>Ex: Se colocar <b>3</b>, os primeiros 3 itens da lista abaixo serão grátis.</p>
-                        <p className="text-xs text-orange-600 mt-0.5">* Itens marcados como "Sempre Cobrar" ignoram essa contagem.</p>
+                    <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-3 py-2">
+                        <span className="text-sm text-gray-600 font-bold">Cobrar excedente a partir de:</span>
+                        <input 
+                            type="number" 
+                            min="0"
+                            value={formData.cobrarApartirDe}
+                            onChange={(e) => setFormData({...formData, cobrarApartirDe: parseInt(e.target.value)})}
+                            className="w-16 p-1 border-b-2 border-blue-500 font-bold text-center text-lg outline-none"
+                        />
+                         <span className="text-sm text-gray-600 font-bold">itens.</span>
                     </div>
                 </div>
+                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                    <AlertCircle size={12} />
+                    Os primeiros {formData.cobrarApartirDe} itens <b>PADRÃO</b> serão grátis. O restante será cobrado.
+                </p>
              </div>
           </div>
 
@@ -177,7 +181,9 @@ const AddonConfig: React.FC = () => {
              <div className="flex flex-col border-2 border-blue-100 rounded-lg overflow-hidden">
                 <div className="bg-blue-50 p-3 border-b border-blue-100 font-bold text-blue-800 text-sm flex justify-between">
                     <span>Itens Vinculados a Regra ({formData.itens.length})</span>
-                    <span className="text-xs font-normal">Configure quais são pagos</span>
+                    <span className="text-xs font-normal text-blue-600 bg-white px-2 py-0.5 rounded border border-blue-200">
+                        Clique no botão para alterar o tipo
+                    </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-white">
                     {formData.itens.map((item, index) => {
@@ -185,35 +191,46 @@ const AddonConfig: React.FC = () => {
                         if (!product) return null;
                         
                         return (
-                            <div key={item.produtoComplementoId} className="bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center shadow-sm">
+                            <div key={item.produtoComplementoId} className={`p-3 rounded-lg border flex justify-between items-center shadow-sm transition-colors ${item.cobrarSempre ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
                                 <div className="flex items-center gap-3">
-                                    <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-bold">
+                                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${item.cobrarSempre ? 'bg-orange-200 text-orange-800' : 'bg-gray-100 text-gray-500'}`}>
                                         {index + 1}
                                     </span>
                                     <div>
                                         <div className="font-bold text-gray-800">{product.nome}</div>
-                                        <div className="text-xs text-gray-500">Custo: R$ {product.preco.toFixed(2)}</div>
+                                        <div className="text-xs text-gray-500">Valor Unitário: R$ {product.preco.toFixed(2)}</div>
                                     </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-4">
-                                    <label className="flex items-center gap-2 cursor-pointer bg-gray-50 px-2 py-1 rounded hover:bg-gray-100">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={item.cobrarSempre} 
-                                            onChange={() => toggleCobrarSempre(item.produtoComplementoId)}
-                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                        />
-                                        <span className={`text-xs font-bold ${item.cobrarSempre ? 'text-red-600' : 'text-green-600'}`}>
-                                            {item.cobrarSempre ? 'Sempre Cobrar' : 'Entra na Gratuidade'}
-                                        </span>
-                                    </label>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleCobrarSempre(item.produtoComplementoId)}
+                                        className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-colors flex items-center gap-2 ${
+                                            item.cobrarSempre 
+                                            ? 'bg-white border-orange-300 text-orange-700 hover:bg-orange-100 shadow-sm' 
+                                            : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                                        }`}
+                                        title={item.cobrarSempre ? "Clique para tornar Padrão (Grátis)" : "Clique para tornar Premium (Pago)"}
+                                    >
+                                        {item.cobrarSempre ? (
+                                            <>
+                                                <DollarSign size={14} /> 
+                                                PREMIUM (Sempre Cobra)
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Check size={14} /> 
+                                                PADRÃO (Conta como Grátis)
+                                            </>
+                                        )}
+                                    </button>
                                     
                                     <button 
                                         type="button" 
                                         onClick={() => removeItemFromRule(item.produtoComplementoId)}
-                                        className="text-red-400 hover:text-red-600 p-1"
-                                        title="Remover"
+                                        className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded transition-colors"
+                                        title="Remover da lista"
                                     >
                                         <Trash2 size={16}/>
                                     </button>
