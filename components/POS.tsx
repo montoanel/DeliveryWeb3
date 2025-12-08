@@ -64,7 +64,7 @@ const PrintableReceipt = ({ data }: { data: PrintableData | null }) => {
                 <h1 className="text-xl font-bold uppercase">DeliverySys</h1>
                 <p className="text-xs">Rua Exemplo, 123 - Centro</p>
                 <p className="text-xs">CNPJ: 00.000.000/0001-00</p>
-                <p className="text-xs">{new Date(data.date).toLocaleString()}</p>
+                <p className="text-xs">{new Date(data.date).toLocaleString('pt-BR')}</p>
             </div>
 
             <div className="max-w-[80mm] mx-auto mb-2 border-b border-dashed border-black pb-2">
@@ -1066,7 +1066,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
                         </div>
                     </td>
                     <td className="p-3 text-sm text-gray-500">{order.id}</td>
-                    <td className="p-3 text-sm text-gray-500">{new Date(order.data).toLocaleString()}</td>
+                    <td className="p-3 text-sm text-gray-500">{new Date(order.data).toLocaleString('pt-BR')}</td>
                     <td className="p-3 text-sm text-gray-700">{order.clienteNome}</td>
                     <td className="p-3 text-sm text-gray-600">
                       {order.pagamentos && order.pagamentos.length > 0 

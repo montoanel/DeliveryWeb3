@@ -264,7 +264,7 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                  </div>
                  <div className="flex justify-between">
                      <span className="text-gray-500">Abertura:</span>
-                     <span className="font-bold">{new Date(session.dataAbertura).toLocaleString()}</span>
+                     <span className="font-bold">{new Date(session.dataAbertura).toLocaleString('pt-BR')}</span>
                  </div>
                  <div className="flex justify-between">
                      <span className="text-gray-500">Fundo Inicial:</span>
@@ -298,7 +298,7 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                 return (
                 <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
                   <td className="p-4 text-sm text-gray-600">
-                    {new Date(mov.data).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {new Date(mov.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                   </td>
                   <td className="p-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
@@ -555,7 +555,7 @@ const AuditView: React.FC<{ user: Usuario }> = ({ user }) => {
                         >
                             <div className="flex justify-between mb-1">
                                 <span className="font-bold text-gray-800">#{s.id} - {s.caixaNome}</span>
-                                <span className="text-xs text-gray-500">{new Date(s.dataFechamento!).toLocaleTimeString()}</span>
+                                <span className="text-xs text-gray-500">{new Date(s.dataFechamento!).toLocaleTimeString('pt-BR')}</span>
                             </div>
                             <div className="text-sm text-gray-600 mb-2">Op: {s.usuarioNome}</div>
                             <div className="flex justify-between items-center">
@@ -581,7 +581,7 @@ const AuditView: React.FC<{ user: Usuario }> = ({ user }) => {
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-xl font-bold text-gray-800">Consolidação de Caixa #{selectedSession.id}</h2>
                             <div className="text-sm text-gray-500">
-                                Fechado em: {new Date(selectedSession.dataFechamento!).toLocaleString()}
+                                Fechado em: {new Date(selectedSession.dataFechamento!).toLocaleString('pt-BR')}
                             </div>
                         </div>
 
@@ -701,9 +701,9 @@ const PrintableSessionReport = ({ session }: { session: SessaoCaixa | null }) =>
                     <p><b>Operador:</b> {session.usuarioNome}</p>
                 </div>
                 <div className="text-right">
-                    <p><b>Abertura:</b> {new Date(session.dataAbertura).toLocaleString()}</p>
-                    <p><b>Fechamento:</b> {new Date(session.dataFechamento || '').toLocaleString()}</p>
-                    <p><b>Consolidação:</b> {new Date(session.dataConsolidacao || '').toLocaleString()}</p>
+                    <p><b>Abertura:</b> {new Date(session.dataAbertura).toLocaleString('pt-BR')}</p>
+                    <p><b>Fechamento:</b> {new Date(session.dataFechamento || '').toLocaleString('pt-BR')}</p>
+                    <p><b>Consolidação:</b> {new Date(session.dataConsolidacao || '').toLocaleString('pt-BR')}</p>
                 </div>
             </div>
 
@@ -841,7 +841,7 @@ const HistoryView: React.FC<{ user: Usuario }> = ({ user }) => {
                             <tr key={s.id} className="hover:bg-gray-50">
                                 <td className="p-4 text-sm font-mono text-gray-500">#{s.id}</td>
                                 <td className="p-4 text-sm font-bold text-gray-800">
-                                    {new Date(s.dataConsolidacao || s.dataAbertura).toLocaleString()}
+                                    {new Date(s.dataConsolidacao || s.dataAbertura).toLocaleString('pt-BR')}
                                 </td>
                                 <td className="p-4 text-sm text-gray-600">
                                     <div>{s.caixaNome}</div>
