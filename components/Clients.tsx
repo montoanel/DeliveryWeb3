@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { Cliente } from '../types';
-import { Plus, Search, Edit2, Trash2, Save, X, User, MapPin, Phone, MessageCircle } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Save, X, User, MapPin, Phone, MessageCircle, Wallet } from 'lucide-react';
 
 // --- Validation Helpers ---
 
@@ -112,7 +112,8 @@ const Clients: React.FC = () => {
     complemento: '',
     bairro: '',
     cep: '',
-    cidade: ''
+    cidade: '',
+    saldoCredito: 0
   };
 
   const [formData, setFormData] = useState<Cliente>(initialFormState);
@@ -395,6 +396,11 @@ const Clients: React.FC = () => {
                 <td className="p-4">
                    <div className="font-medium text-gray-800">{client.nome}</div>
                    <div className="text-xs text-gray-400">{client.tipoPessoa} - {client.cpfCnpj}</div>
+                   {client.saldoCredito && client.saldoCredito > 0 ? (
+                       <div className="mt-1 inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-bold">
+                           <Wallet size={12} /> Saldo: R$ {client.saldoCredito.toFixed(2)}
+                       </div>
+                   ) : null}
                 </td>
                 <td className="p-4 text-sm text-gray-600">
                   <div className="flex items-center gap-1.5"><Phone size={14} className="text-gray-400"/> {client.telefone}</div>

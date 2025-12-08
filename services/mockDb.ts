@@ -37,7 +37,7 @@ class MockDB {
     this.caixas = [{ id: 1, nome: 'Caixa 01', ativo: true }];
     this.usuarios = [{ id: 1, nome: 'Administrador', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true }];
     this.configuracoesAdicionais = [];
-    this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', nomeWhatsapp: '', endereco: '', numero: '', complemento: '', bairro: '' }];
+    this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', nomeWhatsapp: '', endereco: '', numero: '', complemento: '', bairro: '', saldoCredito: 0 }];
   }
 
   // --- GETTERS ---
@@ -60,6 +60,32 @@ class MockDB {
           total += this.getSaldoSessao(s.id);
       }
       return total;
+  }
+  
+  // New helper to get Money balance specifically
+  getSaldoDinheiroSessao(sessaoId: number): number {
+      const movimentos = this.caixaMovimentos.filter(m => m.sessaoId === sessaoId);
+      // Assuming ID 1 is always Dinheiro based on Seed. ideally we'd look it up.
+      const dinheiroId = 1; 
+      
+      return movimentos.reduce((acc, mov) => {
+          // If it's a generic opening/bleed operation, we assume it affects money
+          if (mov.tipoOperacao === TipoOperacaoCaixa.Abertura || mov.tipoOperacao === TipoOperacaoCaixa.Reforco || mov.tipoOperacao === TipoOperacaoCaixa.CreditoCliente) {
+             return acc + mov.valor;
+          }
+          if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Troco) {
+             return acc - mov.valor;
+          }
+          
+          // For sales, we check the payment method
+          if (mov.tipoOperacao === TipoOperacaoCaixa.Vendas) {
+              if (mov.formaPagamentoId === dinheiroId) {
+                  return acc + mov.valor;
+              }
+          }
+          
+          return acc;
+      }, 0);
   }
 
   getVendasDoDia() {
@@ -85,6 +111,7 @@ class MockDB {
   saveCliente(item: Cliente) {
       if(item.id === 0) {
           item.id = Math.max(0, ...this.clientes.map(p => p.id)) + 1;
+          item.saldoCredito = 0;
           this.clientes.push(item);
       } else {
           const index = this.clientes.findIndex(p => p.id === item.id);
@@ -167,7 +194,7 @@ class MockDB {
     return this.caixaMovimentos
       .filter(m => m.sessaoId === sessaoId)
       .reduce((acc, mov) => {
-        if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento) {
+        if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento || mov.tipoOperacao === TipoOperacaoCaixa.Troco) {
           return acc - mov.valor;
         }
         return acc + mov.valor;
@@ -220,14 +247,15 @@ class MockDB {
       this.lancarMovimento(sessaoId, TipoOperacaoCaixa.Fechamento, saldoFinalCalculado, 'Fechamento de Caixa');
   }
   
-  lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string) {
+  lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string, formaPagamentoId?: number) {
       const mov: CaixaMovimento = {
           id: Math.max(0, ...this.caixaMovimentos.map(m => m.id)) + 1,
           sessaoId,
           data: new Date().toISOString(),
           tipoOperacao: tipo,
           valor,
-          observacao: obs
+          observacao: obs,
+          formaPagamentoId
       };
       this.caixaMovimentos.push(mov);
   }
@@ -237,24 +265,81 @@ class MockDB {
   }
 
   // --- PAYMENT PROCESSING ---
-  addPagamento(orderId: number, payment: Pagamento, userId: number) {
+  addPagamento(orderId: number, payment: Pagamento, userId: number, valorTroco: number = 0, valorBruto: number = 0) {
       const sessao = this.getSessaoAberta(userId);
       if(!sessao) throw new Error("Caixa Fechado. Abra o caixa para receber.");
       
       const pedido = this.getPedidoById(orderId);
       if(!pedido) throw new Error("Pedido não encontrado");
+
+      // Verify Physical Cash Balance if Change is needed
+      const dinheiroId = 1;
+      const isDinheiro = payment.formaPagamentoId === dinheiroId;
+      
+      if (isDinheiro && valorTroco > 0) {
+          const saldoDinheiro = this.getSaldoDinheiroSessao(sessao.id);
+          if (saldoDinheiro < valorTroco) {
+              throw new Error("ERR_SALDO_INSUFICIENTE: Não há dinheiro suficiente em caixa para este troco.");
+          }
+      }
       
       // Add payment to order
       pedido.pagamentos.push(payment);
       
-      // CHECK: Update Status automatically if fully paid
+      // Automatic Status Update
       const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
       if (totalPaid >= (pedido.total - 0.01)) {
           pedido.status = PedidoStatus.Pago;
       }
       
-      // Register Movement in Cash
-      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`);
+      // Register Movement(s)
+      if (isDinheiro && valorBruto > 0) {
+          // 1. Entry of Total Amount Handed
+          this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, valorBruto, `Pedido #${orderId} - Dinheiro (Recebido)`, payment.formaPagamentoId);
+          
+          // 2. Exit of Change
+          if (valorTroco > 0) {
+              this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Troco, valorTroco, `Pedido #${orderId} - Troco`, payment.formaPagamentoId);
+          }
+      } else {
+          // Standard logic for non-cash or exact amount
+          this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
+      }
+  }
+
+  converterTrocoEmCredito(orderId: number, payment: Pagamento, valorTroco: number, userId: number, valorBruto: number) {
+      const sessao = this.getSessaoAberta(userId);
+      if(!sessao) throw new Error("Caixa Fechado.");
+      
+      const pedido = this.getPedidoById(orderId);
+      if(!pedido) throw new Error("Pedido não encontrado");
+      if(!pedido.clienteId) throw new Error("Pedido sem cliente vinculado.");
+      
+      const cliente = this.clientes.find(c => c.id === pedido.clienteId);
+      if(!cliente) throw new Error("Cliente não encontrado.");
+
+      // 1. Add Payment to Order
+      pedido.pagamentos.push(payment);
+      
+      const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
+      if (totalPaid >= (pedido.total - 0.01)) {
+          pedido.status = PedidoStatus.Pago;
+      }
+
+      // 2. Register Cash Movement (We keep the FULL amount in drawer, technically)
+      // Logic: User gave 10. Sale is 6. 4 goes to credit.
+      // Drawer: +10 in Cash.
+      // Accounting: Sale +6, Customer Credit Liability +4.
+      // For simple cash flow: We register +6 Sales and +4 Credit Entry
+      
+      // Entry 1: The Sale Part
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
+      
+      // Entry 2: The Credit Part (Surplus stays in drawer)
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.CreditoCliente, valorTroco, `Crédito Gerado - Cliente #${cliente.id}`, payment.formaPagamentoId);
+
+      // 3. Update Client Balance
+      cliente.saldoCredito = (cliente.saldoCredito || 0) + valorTroco;
   }
   
   cancelPagamento(orderId: number, paymentId: string, userId: number) {
@@ -274,11 +359,11 @@ class MockDB {
       // Remove payment
       pedido.pagamentos.splice(paymentIndex, 1);
       
-      // Always revert status to Pendente if payment is removed
+      // Always revert status to Pendente
       pedido.status = PedidoStatus.Pendente; 
       
       // Register negative movement (Sangria/Estorno)
-      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Sangria, payment.valor, `ESTORNO Pedido #${orderId} - ${payment.formaPagamentoNome}`);
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Sangria, payment.valor, `ESTORNO Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
   }
 }
 

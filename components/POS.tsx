@@ -573,12 +573,13 @@ const POS: React.FC<POSProps> = ({ user }) => {
      }
 
      const selectedMethod = paymentMethods.find(p => p.id === selectedPaymentMethodId);
+     const isCash = selectedMethod?.nome.toLowerCase().includes('dinheiro');
      
      let realPayment = amountToPay;
      let change = 0;
      
      if (amountToPay > (remaining + 0.01)) {
-        if (selectedMethod?.nome.toLowerCase().includes('dinheiro')) {
+        if (isCash) {
             change = amountToPay - remaining;
             realPayment = remaining;
         } else {
@@ -595,12 +596,30 @@ const POS: React.FC<POSProps> = ({ user }) => {
        valor: realPayment
      };
 
-     // Execute DB Operation with Error Handling for Session
+     // Execute DB Operation with Error Handling for Session & Balance
      try {
-         db.addPagamento(orderId, newPayment, user.id);
+         // Pass change and brute value for strict checking
+         db.addPagamento(orderId, newPayment, user.id, change, isCash ? amountToPay : 0);
      } catch(e: any) {
-         alert(e.message);
-         return;
+         if (e.message && e.message.includes("ERR_SALDO_INSUFICIENTE")) {
+             // Logic for Credit Conversion
+             if (selectedClient && confirm(`SALDO INSUFICIENTE PARA O TROCO DE R$ ${change.toFixed(2)}.\n\nDeseja transformar este troco em CRÉDITO para o cliente ${selectedClient.nome}?`)) {
+                 try {
+                     db.converterTrocoEmCredito(orderId, newPayment, change, user.id, amountToPay);
+                     alert(`Troco convertido em crédito com sucesso!`);
+                     // Success - fallthrough to refresh
+                 } catch (err: any) {
+                     alert("Erro ao gerar crédito: " + err.message);
+                     return;
+                 }
+             } else {
+                 alert("Operação cancelada. Verifique o saldo do caixa.");
+                 return;
+             }
+         } else {
+             alert(e.message);
+             return;
+         }
      }
      
      refreshData(); // Refresh background list immediately

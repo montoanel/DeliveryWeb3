@@ -12,7 +12,9 @@ export enum TipoOperacaoCaixa {
   Reforco = 'Reforço',
   Sangria = 'Sangria',
   Vendas = 'Venda',
-  Fechamento = 'Fechamento'
+  Fechamento = 'Fechamento',
+  Troco = 'Troco', // Saída
+  CreditoCliente = 'Crédito Cliente' // Entrada (sobra de troco)
 }
 
 export enum PedidoStatus {
@@ -29,7 +31,8 @@ export interface Cliente {
   nome: string;
   cpfCnpj: string;
   telefone: string;
-  nomeWhatsapp?: string; // New field
+  nomeWhatsapp?: string; 
+  saldoCredito?: number; // Saldo em haver
   // Address breakdown
   endereco: string; // Logradouro
   numero: string;
@@ -49,7 +52,7 @@ export type TipoProduto = 'Principal' | 'Complemento';
 export interface Produto {
   id: number;
   ativo: boolean; // Status
-  tipo: TipoProduto; // New field
+  tipo: TipoProduto; 
   codigoInterno: string;
   codigoBarras: string;
   nome: string;
@@ -69,7 +72,7 @@ export interface ConfiguracaoAdicional {
   id: number;
   produtoPrincipalId: number;
   cobrarApartirDe: number; // Quantidade gratuita. Ex: 3 (cobra a partir do 4º)
-  itens: ConfiguracaoItemRule[]; // Changed from simple number[] to object array
+  itens: ConfiguracaoItemRule[]; 
 }
 
 export interface FormaPagamento {
@@ -88,7 +91,7 @@ export interface PedidoItemAdicional {
 export interface PedidoItem {
   produto: Produto;
   quantidade: number;
-  adicionais?: PedidoItemAdicional[]; // New field
+  adicionais?: PedidoItemAdicional[]; 
 }
 
 export interface Pagamento {
@@ -162,6 +165,7 @@ export interface CaixaMovimento {
   tipoOperacao: TipoOperacaoCaixa;
   valor: number;
   observacao: string;
+  formaPagamentoId?: number; // Para rastrear saldo de dinheiro físico
 }
 
 // User Management
