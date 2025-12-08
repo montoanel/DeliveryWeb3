@@ -1,3 +1,4 @@
+
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
@@ -36,7 +37,7 @@ class MockDB {
     this.caixas = [{ id: 1, nome: 'Caixa 01', ativo: true }];
     this.usuarios = [{ id: 1, nome: 'Administrador', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true }];
     this.configuracoesAdicionais = [];
-    this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', endereco: '', numero: '', complemento: '', bairro: '' }];
+    this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', nomeWhatsapp: '', endereco: '', numero: '', complemento: '', bairro: '' }];
   }
 
   // --- GETTERS ---

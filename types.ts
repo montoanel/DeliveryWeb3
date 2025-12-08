@@ -29,6 +29,7 @@ export interface Cliente {
   nome: string;
   cpfCnpj: string;
   telefone: string;
+  nomeWhatsapp?: string; // New field
   // Address breakdown
   endereco: string; // Logradouro
   numero: string;

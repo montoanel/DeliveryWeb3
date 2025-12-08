@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { Cliente } from '../types';
-import { Plus, Search, Edit2, Trash2, Save, X, User, MapPin, Phone } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Save, X, User, MapPin, Phone, MessageCircle } from 'lucide-react';
 
 // --- Validation Helpers ---
 
@@ -64,6 +65,34 @@ const isValidCNPJ = (cnpj: string) => {
   return true;
 };
 
+// --- Mask Helpers ---
+const maskCPF = (value: string) => {
+  return value
+    .replace(/\D/g, '')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+    .replace(/(-\d{2})\d+?$/, '$1');
+};
+
+const maskCNPJ = (value: string) => {
+  return value
+    .replace(/\D/g, '')
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2')
+    .replace(/(-\d{2})\d+?$/, '$1');
+};
+
+const maskPhone = (value: string) => {
+  return value
+    .replace(/\D/g, '')
+    .replace(/(\d{2})(\d)/, '($1) $2')
+    .replace(/(\d{5})(\d)/, '$1-$2')
+    .replace(/(-\d{4})\d+?$/, '$1');
+};
+
 // --- Component ---
 
 const Clients: React.FC = () => {
@@ -77,6 +106,7 @@ const Clients: React.FC = () => {
     nome: '',
     cpfCnpj: '',
     telefone: '',
+    nomeWhatsapp: '',
     endereco: '',
     numero: '',
     complemento: '',
@@ -183,7 +213,10 @@ const Clients: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">Tipo Pessoa</label>
               <select 
                 value={formData.tipoPessoa}
-                onChange={(e) => setFormData({...formData, tipoPessoa: e.target.value as 'Física' | 'Jurídica'})}
+                onChange={(e) => {
+                    const newType = e.target.value as 'Física' | 'Jurídica';
+                    setFormData({...formData, tipoPessoa: newType, cpfCnpj: ''}); // Clear doc when type changes
+                }}
                 className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 <option value="Física">Física</option>
@@ -204,29 +237,43 @@ const Clients: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 border-b border-gray-100 pb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 border-b border-gray-100 pb-8">
              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">CPF / CNPJ</label>
                 <input 
                   type="text" 
                   required
                   value={formData.cpfCnpj}
-                  onChange={(e) => setFormData({...formData, cpfCnpj: e.target.value})}
+                  onChange={(e) => {
+                      const masked = formData.tipoPessoa === 'Física' ? maskCPF(e.target.value) : maskCNPJ(e.target.value);
+                      setFormData({...formData, cpfCnpj: masked});
+                  }}
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   placeholder={formData.tipoPessoa === 'Física' ? '000.000.000-00' : '00.000.000/0000-00'}
+                  maxLength={formData.tipoPessoa === 'Física' ? 14 : 18}
                 />
-                <p className="text-xs text-gray-400 mt-1">
-                  * Somente números válidos serão aceitos.
-                </p>
              </div>
              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Telefone / Celular</label>
                 <input 
                   type="text" 
                   value={formData.telefone}
-                  onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                  onChange={(e) => setFormData({...formData, telefone: maskPhone(e.target.value)})}
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   placeholder="(00) 00000-0000"
+                  maxLength={15}
+                />
+             </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <MessageCircle size={16} className="text-green-600"/> Nome Whatsapp
+                </label>
+                <input 
+                  type="text" 
+                  value={formData.nomeWhatsapp || ''}
+                  onChange={(e) => setFormData({...formData, nomeWhatsapp: e.target.value})}
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="Nome no App"
                 />
              </div>
           </div>
@@ -351,6 +398,9 @@ const Clients: React.FC = () => {
                 </td>
                 <td className="p-4 text-sm text-gray-600">
                   <div className="flex items-center gap-1.5"><Phone size={14} className="text-gray-400"/> {client.telefone}</div>
+                  {client.nomeWhatsapp && (
+                      <div className="flex items-center gap-1.5 text-xs text-green-600 mt-1"><MessageCircle size={12}/> {client.nomeWhatsapp}</div>
+                  )}
                 </td>
                 <td className="p-4 text-sm text-gray-600">
                   <div className="flex items-center gap-1.5"><MapPin size={14} className="text-gray-400"/> {client.endereco}, {client.numero} - {client.bairro}</div>
