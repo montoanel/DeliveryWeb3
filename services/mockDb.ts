@@ -1,3 +1,4 @@
+
 import { Cliente, Produto, CaixaMovimento, Pedido, TipoOperacaoCaixa, PedidoStatus, GrupoProduto, FormaPagamento, ConfiguracaoAdicional, Pagamento, Usuario } from '../types';
 
 export const INITIAL_GROUPS: GrupoProduto[] = [
@@ -34,13 +35,37 @@ export const INITIAL_PRODUCTS: Produto[] = [
   { id: 102, ativo: true, tipo: 'Complemento', codigoInterno: 'AD03', codigoBarras: '', nome: 'Paçoca', preco: 2.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 6 },
   { id: 103, ativo: true, tipo: 'Complemento', codigoInterno: 'AD04', codigoBarras: '', nome: 'Morango', preco: 4.00, custo: 1.00, unidadeMedida: 'POR', grupoProdutoId: 6 },
   { id: 104, ativo: true, tipo: 'Complemento', codigoInterno: 'AD05', codigoBarras: '', nome: 'Banana', preco: 2.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 6 },
+  { id: 105, ativo: true, tipo: 'Complemento', codigoInterno: 'AD06', codigoBarras: '', nome: 'Nutella (Premium)', preco: 6.00, custo: 2.50, unidadeMedida: 'POR', grupoProdutoId: 6 },
 ];
 
 export const INITIAL_ADDON_CONFIGS: ConfiguracaoAdicional[] = [
   // Açaí 300ml: 3 Free items
-  { id: 1, produtoPrincipalId: 5, cobrarApartirDe: 3, complementosIds: [100, 101, 102, 103, 104] },
+  { 
+    id: 1, 
+    produtoPrincipalId: 5, 
+    cobrarApartirDe: 3, 
+    itens: [
+      { produtoComplementoId: 100, cobrarSempre: false }, // Leite Ninho
+      { produtoComplementoId: 101, cobrarSempre: false }, // Granola
+      { produtoComplementoId: 102, cobrarSempre: false }, // Paçoca
+      { produtoComplementoId: 103, cobrarSempre: true },  // Morango (Cobrar Sempre example)
+      { produtoComplementoId: 104, cobrarSempre: false }, // Banana
+      { produtoComplementoId: 105, cobrarSempre: true },  // Nutella (Cobrar Sempre)
+    ] 
+  },
   // Açaí 500ml: 5 Free items
-  { id: 2, produtoPrincipalId: 6, cobrarApartirDe: 5, complementosIds: [100, 101, 102, 103, 104] }
+  { 
+    id: 2, 
+    produtoPrincipalId: 6, 
+    cobrarApartirDe: 5, 
+    itens: [
+      { produtoComplementoId: 100, cobrarSempre: false },
+      { produtoComplementoId: 101, cobrarSempre: false },
+      { produtoComplementoId: 102, cobrarSempre: false },
+      { produtoComplementoId: 103, cobrarSempre: false },
+      { produtoComplementoId: 104, cobrarSempre: false },
+    ] 
+  }
 ];
 
 export const INITIAL_CLIENTS: Cliente[] = [

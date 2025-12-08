@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { ConfiguracaoAdicional, Produto } from '../types';
-import { Plus, Edit2, Trash2, Save, X, Layers, CheckSquare, Square } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, Layers, ArrowRight, AlertCircle } from 'lucide-react';
 
 const AddonConfig: React.FC = () => {
   const [configs, setConfigs] = useState<ConfiguracaoAdicional[]>([]);
@@ -13,7 +14,7 @@ const AddonConfig: React.FC = () => {
     id: 0,
     produtoPrincipalId: 0,
     cobrarApartirDe: 0,
-    complementosIds: []
+    itens: [] // New structure
   };
   const [formData, setFormData] = useState<ConfiguracaoAdicional>(initialFormState);
 
@@ -49,30 +50,54 @@ const AddonConfig: React.FC = () => {
       alert("Selecione um produto principal.");
       return;
     }
+    if (formData.itens.length === 0) {
+      alert("Adicione pelo menos um item complementar à regra.");
+      return;
+    }
+
     db.saveConfiguracaoAdicional(formData);
     loadData();
     setView('list');
     alert("Configuração salva com sucesso!");
   };
 
-  const toggleComplement = (id: number) => {
-    setFormData(prev => {
-      const exists = prev.complementosIds.includes(id);
-      if (exists) {
-        return { ...prev, complementosIds: prev.complementosIds.filter(c => c !== id) };
-      } else {
-        return { ...prev, complementosIds: [...prev.complementosIds, id] };
-      }
-    });
+  const addItemToRule = (complementId: number) => {
+    if (!formData.itens.find(i => i.produtoComplementoId === complementId)) {
+      setFormData(prev => ({
+        ...prev,
+        itens: [...prev.itens, { produtoComplementoId: complementId, cobrarSempre: false }]
+      }));
+    }
+  };
+
+  const removeItemFromRule = (complementId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      itens: prev.itens.filter(i => i.produtoComplementoId !== complementId)
+    }));
+  };
+
+  const toggleCobrarSempre = (complementId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      itens: prev.itens.map(i => 
+        i.produtoComplementoId === complementId 
+        ? { ...i, cobrarSempre: !i.cobrarSempre } 
+        : i
+      )
+    }));
   };
 
   // Filters
   const mainProducts = products.filter(p => p.tipo === 'Principal');
   const complementProducts = products.filter(p => p.tipo === 'Complemento');
+  
+  // Available complements (not yet in rule)
+  const availableComplements = complementProducts.filter(p => !formData.itens.find(i => i.produtoComplementoId === p.id));
 
   if (view === 'form') {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800">
             {formData.id === 0 ? 'Nova Regra de Adicionais' : 'Editar Regra'}
@@ -82,69 +107,136 @@ const AddonConfig: React.FC = () => {
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-6">
+        <form onSubmit={handleSave} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col gap-6">
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Header Configuration */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Produto Principal</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Produto Principal</label>
                 <select 
                   value={formData.produtoPrincipalId}
                   onChange={(e) => setFormData({...formData, produtoPrincipalId: parseInt(e.target.value)})}
                   className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  disabled={formData.id !== 0} // Avoid changing main product on edit to simplify logic
+                  disabled={formData.id !== 0} 
                 >
                   <option value={0}>Selecione...</option>
                   {mainProducts.map(p => (
                     <option key={p.id} value={p.id}>{p.nome}</option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Produtos tipo 'Principal' apenas.</p>
+                <p className="text-xs text-gray-500 mt-1">O produto que dispara a abertura dos adicionais.</p>
              </div>
 
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cobrar Adicionais a partir de:</label>
-                <input 
-                  type="number" 
-                  min="0"
-                  value={formData.cobrarApartirDe}
-                  onChange={(e) => setFormData({...formData, cobrarApartirDe: parseInt(e.target.value)})}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">Ex: Se colocar 3, os primeiros 3 itens selecionados serão grátis.</p>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Regra de Gratuidade (Cobrar a partir de:)</label>
+                <div className="flex items-center gap-3">
+                    <input 
+                    type="number" 
+                    min="0"
+                    value={formData.cobrarApartirDe}
+                    onChange={(e) => setFormData({...formData, cobrarApartirDe: parseInt(e.target.value)})}
+                    className="w-24 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-center"
+                    />
+                    <div className="text-sm text-gray-600">
+                        <p>Ex: Se colocar <b>3</b>, os primeiros 3 itens da lista abaixo serão grátis.</p>
+                        <p className="text-xs text-orange-600 mt-0.5">* Itens marcados como "Sempre Cobrar" ignoram essa contagem.</p>
+                    </div>
+                </div>
              </div>
           </div>
 
-          <div>
-             <label className="block text-sm font-medium text-gray-700 mb-4">Adicionais / Complementos Disponíveis</label>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-96 overflow-y-auto">
-                {complementProducts.map(comp => {
-                  const isSelected = formData.complementosIds.includes(comp.id);
-                  return (
-                    <div 
-                      key={comp.id} 
-                      onClick={() => toggleComplement(comp.id)}
-                      className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 border-blue-400' : 'bg-white border-gray-200 hover:border-blue-300'}`}
-                    >
-                       <div className={`mr-3 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`}>
-                          {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
-                       </div>
-                       <div>
-                          <div className="text-sm font-bold text-gray-800">{comp.nome}</div>
-                          <div className="text-xs text-gray-500">Add: R$ {comp.preco.toFixed(2)}</div>
-                       </div>
-                    </div>
-                  );
-                })}
-                {complementProducts.length === 0 && (
-                   <p className="col-span-3 text-center text-gray-400 py-4">Nenhum produto do tipo 'Complemento' cadastrado.</p>
-                )}
+          {/* Builder Interface */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[500px]">
+             
+             {/* Left: Available */}
+             <div className="flex flex-col border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-100 p-3 border-b border-gray-200 font-bold text-gray-700 text-sm">
+                    Adicionais Disponíveis
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-gray-50">
+                    {availableComplements.map(comp => (
+                        <div key={comp.id} className="bg-white p-3 rounded shadow-sm border border-gray-200 flex justify-between items-center group hover:border-blue-300 transition-colors">
+                            <div>
+                                <div className="font-bold text-gray-800">{comp.nome}</div>
+                                <div className="text-xs text-gray-500">Preço Cadastro: R$ {comp.preco.toFixed(2)}</div>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => addItemToRule(comp.id)}
+                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold hover:bg-blue-200 flex items-center gap-1"
+                            >
+                                Adicionar <ArrowRight size={14}/>
+                            </button>
+                        </div>
+                    ))}
+                    {availableComplements.length === 0 && <p className="text-center text-gray-400 mt-10">Não há mais adicionais disponíveis.</p>}
+                </div>
              </div>
-             <p className="text-xs text-gray-500 mt-2 text-right">Selecionados: {formData.complementosIds.length}</p>
+
+             {/* Right: Selected & Configured */}
+             <div className="flex flex-col border-2 border-blue-100 rounded-lg overflow-hidden">
+                <div className="bg-blue-50 p-3 border-b border-blue-100 font-bold text-blue-800 text-sm flex justify-between">
+                    <span>Itens Vinculados a Regra ({formData.itens.length})</span>
+                    <span className="text-xs font-normal">Configure quais são pagos</span>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 space-y-2 bg-white">
+                    {formData.itens.map((item, index) => {
+                        const product = products.find(p => p.id === item.produtoComplementoId);
+                        if (!product) return null;
+                        
+                        return (
+                            <div key={item.produtoComplementoId} className="bg-white p-3 rounded-lg border border-gray-200 flex justify-between items-center shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-bold">
+                                        {index + 1}
+                                    </span>
+                                    <div>
+                                        <div className="font-bold text-gray-800">{product.nome}</div>
+                                        <div className="text-xs text-gray-500">Custo: R$ {product.preco.toFixed(2)}</div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer bg-gray-50 px-2 py-1 rounded hover:bg-gray-100">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={item.cobrarSempre} 
+                                            onChange={() => toggleCobrarSempre(item.produtoComplementoId)}
+                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                        />
+                                        <span className={`text-xs font-bold ${item.cobrarSempre ? 'text-red-600' : 'text-green-600'}`}>
+                                            {item.cobrarSempre ? 'Sempre Cobrar' : 'Entra na Gratuidade'}
+                                        </span>
+                                    </label>
+                                    
+                                    <button 
+                                        type="button" 
+                                        onClick={() => removeItemFromRule(item.produtoComplementoId)}
+                                        className="text-red-400 hover:text-red-600 p-1"
+                                        title="Remover"
+                                    >
+                                        <Trash2 size={16}/>
+                                    </button>
+                                </div>
+                            </div>
+                        )
+                    })}
+                     {formData.itens.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-full text-gray-300">
+                            <Layers size={48} className="mb-2"/>
+                            <p>Adicione itens da lista ao lado</p>
+                        </div>
+                    )}
+                </div>
+             </div>
           </div>
 
           <div className="flex justify-end gap-4 border-t border-gray-100 pt-6">
-            <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2">
-              <Save size={18} /> Salvar Regra
+            <button 
+                type="submit" 
+                className="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-200 transition-transform active:scale-95"
+            >
+              <Save size={20} /> Salvar Configuração
             </button>
           </div>
         </form>
@@ -168,7 +260,7 @@ const AddonConfig: React.FC = () => {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="p-4 font-semibold text-gray-600 text-sm">Produto Principal</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Gratuidade (Qtd)</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Gratuidade</th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-center">Opções Vinculadas</th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-right">Ações</th>
             </tr>
@@ -181,10 +273,12 @@ const AddonConfig: React.FC = () => {
                   <td className="p-4 font-bold text-gray-800">{mainProduct?.nome || `Produto #${config.produtoPrincipalId} (Removido)`}</td>
                   <td className="p-4 text-center">
                     <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-bold">
-                       {config.cobrarApartirDe} Grátis
+                       {config.cobrarApartirDe} Primeiros Grátis
                     </span>
                   </td>
-                  <td className="p-4 text-center text-gray-600">{config.complementosIds.length} itens</td>
+                  <td className="p-4 text-center text-gray-600">
+                      {config.itens.length} itens
+                  </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => handleEdit(config)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={18} /></button>

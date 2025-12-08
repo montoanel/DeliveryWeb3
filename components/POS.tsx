@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento } from '../types';
@@ -334,18 +335,35 @@ const POS: React.FC = () => {
     const { product, config } = pendingAddonProduct;
     const finalAddons: PedidoItemAdicional[] = [];
 
-    // Calculate free vs paid logic
-    selectedAddons.forEach((addonId, index) => {
-      const addonProduct = availableProducts.find(p => p.id === addonId);
-      if (addonProduct) {
-        const isFree = index < config.cobrarApartirDe;
-        finalAddons.push({
-          produtoId: addonProduct.id,
-          nome: addonProduct.nome,
-          precoOriginal: addonProduct.preco,
-          precoCobrado: isFree ? 0 : addonProduct.preco
-        });
-      }
+    // Separate items into two groups: Premium (Always Paid) and Standard (Count towards free limit)
+    let standardItemsCount = 0;
+    
+    // We iterate based on selection order, but prioritize "Premium" logic
+    selectedAddons.forEach((addonId) => {
+       const addonProduct = availableProducts.find(p => p.id === addonId);
+       const rule = config.itens.find(i => i.produtoComplementoId === addonId);
+
+       if (addonProduct && rule) {
+          let price = addonProduct.preco;
+          
+          if (rule.cobrarSempre) {
+             // Always charge full price
+             price = addonProduct.preco;
+          } else {
+             // It's a standard item, check limit
+             if (standardItemsCount < config.cobrarApartirDe) {
+                price = 0;
+             }
+             standardItemsCount++;
+          }
+          
+          finalAddons.push({
+             produtoId: addonProduct.id,
+             nome: addonProduct.nome,
+             precoOriginal: addonProduct.preco,
+             precoCobrado: price
+          });
+       }
     });
 
     addItemToCart(product, 1, finalAddons);
@@ -965,29 +983,26 @@ const POS: React.FC = () => {
           {/* Addon Modal */}
           {isAddonModalOpen && pendingAddonProduct && (
             <div className="absolute inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-              {/* ... existing addon modal code ... */}
               <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl flex flex-col animate-in zoom-in duration-200 max-h-[85vh]">
                   <div className="p-6 border-b border-gray-200 bg-gray-50 rounded-t-xl">
                     <h3 className="text-xl font-bold text-gray-800">{pendingAddonProduct.product.nome}</h3>
                     <p className="text-sm text-gray-500 mt-1">
-                      Selecione os itens desejados. <span className="text-green-600 font-bold">Grátis até {pendingAddonProduct.config.cobrarApartirDe} itens.</span>
+                      Selecione os itens desejados. <span className="text-green-600 font-bold">Grátis até {pendingAddonProduct.config.cobrarApartirDe} itens (exceto Premium).</span>
                     </p>
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-4">
                     <div className="space-y-2">
-                        {pendingAddonProduct.config.complementosIds.map((addonId) => {
-                            const addon = availableProducts.find(x => x.id === addonId);
+                        {pendingAddonProduct.config.itens.map((rule) => {
+                            const addon = availableProducts.find(x => x.id === rule.produtoComplementoId);
                             if (!addon) return null;
                             
-                            const isSelected = selectedAddons.includes(addonId);
-                            const selectionIndex = selectedAddons.indexOf(addonId);
-                            const isFree = isSelected && (selectionIndex < pendingAddonProduct.config.cobrarApartirDe);
+                            const isSelected = selectedAddons.includes(addon.id);
                             
                             return (
                                 <div 
-                                    key={addonId} 
-                                    onClick={() => handleToggleAddon(addonId)}
+                                    key={addon.id} 
+                                    onClick={() => handleToggleAddon(addon.id)}
                                     className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all select-none ${
                                         isSelected 
                                         ? 'bg-blue-50 border-blue-500 shadow-sm' 
@@ -1002,20 +1017,18 @@ const POS: React.FC = () => {
                                             <span className={`font-bold ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>
                                                 {addon.nome}
                                             </span>
-                                            {isSelected && (
-                                                <span className="text-xs font-medium text-gray-500">
-                                                    {isFree ? 'Item Gratuito' : 'Item Adicional'}
+                                            {rule.cobrarSempre && (
+                                                <span className="text-xs font-bold text-orange-600 uppercase">
+                                                    Premium (Sempre Pago)
                                                 </span>
                                             )}
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        {isSelected ? (
-                                            isFree 
-                                            ? <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold uppercase">Grátis</span>
-                                            : <span className="text-blue-700 font-bold text-sm">+ R$ {addon.preco.toFixed(2)}</span>
+                                        {rule.cobrarSempre ? (
+                                             <span className="text-orange-700 font-bold text-sm">+ R$ {addon.preco.toFixed(2)}</span>
                                         ) : (
-                                            <span className="text-gray-400 text-sm font-medium">+ R$ {addon.preco.toFixed(2)}</span>
+                                             <span className="text-gray-500 text-xs font-medium">+ R$ {addon.preco.toFixed(2)} (Se exceder)</span>
                                         )}
                                     </div>
                                 </div>

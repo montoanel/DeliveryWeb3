@@ -1,3 +1,4 @@
+
 // Enums mirroring the requested C# logic
 export enum TipoAtendimento {
   VendaRapida = 'Venda Rápida',
@@ -58,11 +59,16 @@ export interface Produto {
   imagem?: string;
 }
 
+export interface ConfiguracaoItemRule {
+  produtoComplementoId: number;
+  cobrarSempre: boolean; // Se true, ignora a regra de gratuidade e cobra cheio
+}
+
 export interface ConfiguracaoAdicional {
   id: number;
   produtoPrincipalId: number;
   cobrarApartirDe: number; // Quantidade gratuita. Ex: 3 (cobra a partir do 4º)
-  complementosIds: number[];
+  itens: ConfiguracaoItemRule[]; // Changed from simple number[] to object array
 }
 
 export interface FormaPagamento {
