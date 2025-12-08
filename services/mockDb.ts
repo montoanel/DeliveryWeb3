@@ -23,21 +23,75 @@ class MockDB {
   }
 
   private seed() {
-    this.grupos = [{ id: 1, nome: 'Lanches' }, { id: 2, nome: 'Bebidas' }];
+    // 1. Grupos
+    this.grupos = [
+        { id: 1, nome: 'Lanches' }, 
+        { id: 2, nome: 'Bebidas' },
+        { id: 3, nome: 'Açaí' },
+        { id: 4, nome: 'Adicionais / Complementos' }
+    ];
+
+    // 2. Produtos
     this.produtos = [
+        // --- LANCHES (Exemplo Antigo) ---
         { id: 1, ativo: true, tipo: 'Principal', codigoInterno: '100', codigoBarras: '7890001', nome: 'X-Burger', preco: 25.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
         { id: 2, ativo: true, tipo: 'Principal', codigoInterno: '101', codigoBarras: '7890002', nome: 'Coca-Cola 350ml', preco: 6.00, custo: 3.00, unidadeMedida: 'UN', grupoProdutoId: 2 },
-        { id: 3, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD1', codigoBarras: '', nome: 'Bacon Extra', preco: 5.00, custo: 2.00, unidadeMedida: 'UN', grupoProdutoId: 1 }
+        { id: 3, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD1', codigoBarras: '', nome: 'Bacon Extra', preco: 5.00, custo: 2.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
+
+        // --- AÇAÍ (Principais) ---
+        { id: 10, ativo: true, tipo: 'Principal', codigoInterno: 'COP180', codigoBarras: '', nome: 'Copo 180ml (2 Grátis)', preco: 13.00, custo: 4.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 11, ativo: true, tipo: 'Principal', codigoInterno: 'COP300', codigoBarras: '', nome: 'Copo 300ml (3 Grátis)', preco: 18.00, custo: 6.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 12, ativo: true, tipo: 'Principal', codigoInterno: 'COP500', codigoBarras: '', nome: 'Copo 500ml (3 Grátis)', preco: 22.00, custo: 8.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 13, ativo: true, tipo: 'Principal', codigoInterno: 'COP700', codigoBarras: '', nome: 'Copo 700ml (4 Grátis)', preco: 27.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 14, ativo: true, tipo: 'Principal', codigoInterno: 'BARCA500', codigoBarras: '', nome: 'Barca 500ml (6 Grátis)', preco: 32.00, custo: 12.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+
+        // --- AÇAÍ (Adicionais Padrão - R$ 3,00 se exceder) ---
+        { id: 50, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-LEITE', codigoBarras: '', nome: 'Leite em Pó', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 51, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-COND', codigoBarras: '', nome: 'Leite Condensado', preco: 3.00, custo: 0.60, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 52, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-GRAN', codigoBarras: '', nome: 'Granola', preco: 3.00, custo: 0.40, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 53, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-PAC', codigoBarras: '', nome: 'Paçoca', preco: 3.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 54, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-BAN', codigoBarras: '', nome: 'Banana', preco: 3.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 55, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-MOR', codigoBarras: '', nome: 'Morango', preco: 3.00, custo: 0.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 56, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-CHOC', codigoBarras: '', nome: 'Chocoball', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
+
+        // --- AÇAÍ (Adicionais Premium - R$ 5,00 Sempre Cobra) ---
+        { id: 80, ativo: true, tipo: 'Complemento', codigoInterno: 'PREM-NUT', codigoBarras: '', nome: 'Nutella (Creme Avelã)', preco: 5.00, custo: 2.00, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 81, ativo: true, tipo: 'Complemento', codigoInterno: 'PREM-NIN', codigoBarras: '', nome: 'Creme de Ninho', preco: 5.00, custo: 1.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 82, ativo: true, tipo: 'Complemento', codigoInterno: 'PREM-OVOM', codigoBarras: '', nome: 'Creme de Ovomaltine', preco: 5.00, custo: 1.90, unidadeMedida: 'POR', grupoProdutoId: 4 },
     ];
+
+    // 3. Configurações de Adicionais
+    
+    // Lista de IDs dos complementos para facilitar a criação
+    const standardAddons = [50, 51, 52, 53, 54, 55, 56].map(id => ({ produtoComplementoId: id, cobrarSempre: false }));
+    const premiumAddons = [80, 81, 82].map(id => ({ produtoComplementoId: id, cobrarSempre: true }));
+    const todosAdicionaisAcai = [...standardAddons, ...premiumAddons];
+
+    this.configuracoesAdicionais = [
+        // Copo 180ml (2 Grátis)
+        { id: 1, produtoPrincipalId: 10, cobrarApartirDe: 2, itens: todosAdicionaisAcai },
+        // Copo 300ml (3 Grátis)
+        { id: 2, produtoPrincipalId: 11, cobrarApartirDe: 3, itens: todosAdicionaisAcai },
+        // Copo 500ml (3 Grátis)
+        { id: 3, produtoPrincipalId: 12, cobrarApartirDe: 3, itens: todosAdicionaisAcai },
+        // Copo 700ml (4 Grátis)
+        { id: 4, produtoPrincipalId: 13, cobrarApartirDe: 4, itens: todosAdicionaisAcai },
+        // Barca 500ml (6 Grátis)
+        { id: 5, produtoPrincipalId: 14, cobrarApartirDe: 6, itens: todosAdicionaisAcai },
+        
+        // Regra do X-Burger (Exemplo antigo mantido)
+        { id: 6, produtoPrincipalId: 1, cobrarApartirDe: 0, itens: [{ produtoComplementoId: 3, cobrarSempre: true }] }
+    ];
+
     this.formasPagamento = [
         { id: 1, nome: 'Dinheiro', ativo: true },
         { id: 2, nome: 'Cartão de Crédito', ativo: true },
         { id: 3, nome: 'Cartão de Débito', ativo: true },
-        { id: 4, nome: 'PIX', ativo: true }
+        { id: 4, nome: 'PIX', ativo: true },
+        { id: 5, nome: 'Voucher / VR', ativo: true }
     ];
     this.caixas = [{ id: 1, nome: 'Caixa 01', ativo: true }];
-    this.usuarios = [{ id: 1, nome: 'Administrador', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true }];
-    this.configuracoesAdicionais = [];
+    this.usuarios = [{ id: 1, nome: 'Administrador', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true, caixaPadraoId: 1 }];
     this.bairros = [
         { id: 1, nome: 'Centro', taxaEntrega: 0.00, ativo: true },
         { id: 2, nome: 'Zona Norte', taxaEntrega: 5.00, ativo: true },
