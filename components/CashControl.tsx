@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { Usuario, SessaoCaixa, CaixaMovimento, TipoOperacaoCaixa, StatusSessao, ConferenciaFechamento, Caixa } from '../types';
@@ -107,6 +108,7 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
           case TipoOperacaoCaixa.Fechamento: return <Lock size={14} />;
           case TipoOperacaoCaixa.Reforco: return <TrendingUp size={14} />;
           case TipoOperacaoCaixa.Sangria: return <TrendingDown size={14} />;
+          case TipoOperacaoCaixa.Troco: return <TrendingDown size={14} />;
           case TipoOperacaoCaixa.Vendas: return <DollarSign size={14} />;
           default: return <DollarSign size={14} />;
       }
@@ -249,7 +251,7 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {history.map((mov) => {
-                const isNegative = mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento;
+                const isNegative = mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento || mov.tipoOperacao === TipoOperacaoCaixa.Troco;
                 return (
                 <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
                   <td className="p-4 text-sm text-gray-600">
@@ -257,7 +259,7 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
                   </td>
                   <td className="p-4">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-                      ${mov.tipoOperacao === TipoOperacaoCaixa.Sangria ? 'bg-orange-100 text-orange-700' : 
+                      ${(mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Troco) ? 'bg-orange-100 text-orange-700' : 
                         mov.tipoOperacao === TipoOperacaoCaixa.Vendas ? 'bg-green-100 text-green-700' :
                         mov.tipoOperacao === TipoOperacaoCaixa.Fechamento ? 'bg-red-100 text-red-700' :
                         'bg-gray-100 text-gray-700'
