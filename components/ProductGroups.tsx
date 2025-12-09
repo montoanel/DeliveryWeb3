@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { GrupoProduto } from '../types';
-import { Plus, Edit2, Trash2, Save, X, Tag } from 'lucide-react';
+import { Plus, Edit2, Save, X, Tag, Power, CheckCircle, Trash2 } from 'lucide-react';
 
 const ProductGroups: React.FC = () => {
   const [groups, setGroups] = useState<GrupoProduto[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
+  const [editActive, setEditActive] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -21,9 +22,11 @@ const ProductGroups: React.FC = () => {
     if (group) {
       setEditingId(group.id);
       setEditName(group.nome);
+      setEditActive(group.ativo);
     } else {
       setEditingId(0); // Novo
       setEditName('');
+      setEditActive(true);
     }
   };
 
@@ -40,7 +43,8 @@ const ProductGroups: React.FC = () => {
 
     const payload: GrupoProduto = {
       id: editingId || 0,
-      nome: editName
+      nome: editName,
+      ativo: editActive
     };
 
     db.saveGrupo(payload);
@@ -48,12 +52,16 @@ const ProductGroups: React.FC = () => {
     setEditingId(null);
   };
 
-  const handleDelete = (id: number) => {
-    // Check if used? For mock, just delete.
-    if (confirm('Deseja realmente remover este grupo?')) {
-      db.deleteGrupo(id);
-      loadData();
-    }
+  const handleToggleStatus = (group: GrupoProduto) => {
+      const newStatus = !group.ativo;
+      const confirmMsg = newStatus 
+          ? `Deseja ATIVAR o grupo "${group.nome}"?` 
+          : `Deseja INATIVAR o grupo "${group.nome}"?`;
+      
+      if (confirm(confirmMsg)) {
+          db.saveGrupo({ ...group, ativo: newStatus });
+          loadData();
+      }
   };
 
   return (
@@ -77,6 +85,7 @@ const ProductGroups: React.FC = () => {
             <tr>
               <th className="p-4 font-semibold text-gray-600 text-sm w-20">ID</th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Nome do Grupo</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Situação</th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-right">Ações</th>
             </tr>
           </thead>
@@ -95,6 +104,16 @@ const ProductGroups: React.FC = () => {
                         placeholder="Ex: Bebidas"
                         className="w-full p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                     />
+                </td>
+                 <td className="p-4">
+                    <select 
+                        value={editActive ? 'true' : 'false'}
+                        onChange={e => setEditActive(e.target.value === 'true')}
+                        className="p-2 border border-blue-300 rounded bg-white"
+                    >
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                    </select>
                 </td>
                 <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -118,6 +137,16 @@ const ProductGroups: React.FC = () => {
                             className="w-full p-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                     </td>
+                    <td className="p-4">
+                        <select 
+                            value={editActive ? 'true' : 'false'}
+                            onChange={e => setEditActive(e.target.value === 'true')}
+                            className="p-2 border border-blue-300 rounded bg-white"
+                        >
+                            <option value="true">Ativo</option>
+                            <option value="false">Inativo</option>
+                        </select>
+                    </td>
                     <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                             <button onClick={handleSave} className="p-2 bg-green-600 text-white rounded hover:bg-green-700"><Save size={18}/></button>
@@ -130,21 +159,26 @@ const ProductGroups: React.FC = () => {
                 <tr key={group.id} className="hover:bg-gray-50 transition-colors">
                     <td className="p-4 text-sm text-gray-500 font-mono">{group.id}</td>
                     <td className="p-4 font-medium text-gray-800">{group.nome}</td>
+                    <td className="p-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${group.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {group.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                    </td>
                     <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                         <button 
-                        onClick={() => handleStartEdit(group)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Editar"
+                            onClick={() => handleStartEdit(group)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar"
                         >
-                        <Edit2 size={18} />
+                            <Edit2 size={18} />
                         </button>
                         <button 
-                        onClick={() => handleDelete(group.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir"
+                            onClick={() => handleToggleStatus(group)}
+                            className={`p-2 rounded-lg transition-colors ${group.ativo ? 'text-red-500 hover:bg-red-50' : 'text-green-500 hover:bg-green-50'}`}
+                            title={group.ativo ? "Inativar" : "Ativar"}
                         >
-                        <Trash2 size={18} />
+                            {group.ativo ? <Power size={18} /> : <CheckCircle size={18} />}
                         </button>
                     </div>
                     </td>

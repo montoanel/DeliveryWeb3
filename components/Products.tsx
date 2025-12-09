@@ -12,7 +12,7 @@ const Products: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Sorting State
-  const [sortConfig, setSortConfig] = useState<{key: 'nome' | 'grupo', direction: 'asc' | 'desc'} | null>(null);
+  const [sortConfig, setSortConfig] = useState<{key: 'ativo' | 'codigo' | 'nome' | 'grupo' | 'tipo' | 'preco', direction: 'asc' | 'desc'} | null>(null);
 
   // Form State
   const initialFormState: Produto = {
@@ -75,7 +75,7 @@ const Products: React.FC = () => {
     alert('Produto salvo com sucesso!');
   };
 
-  const handleSort = (key: 'nome' | 'grupo') => {
+  const handleSort = (key: 'ativo' | 'codigo' | 'nome' | 'grupo' | 'tipo' | 'preco') => {
       let direction: 'asc' | 'desc' = 'asc';
       if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
           direction = 'desc';
@@ -95,19 +95,36 @@ const Products: React.FC = () => {
       if (!sortConfig) return filteredProducts;
       
       return [...filteredProducts].sort((a, b) => {
-          if (sortConfig.key === 'nome') {
-              return sortConfig.direction === 'asc' 
-                ? a.nome.localeCompare(b.nome) 
-                : b.nome.localeCompare(a.nome);
+          let compareResult = 0;
+          
+          switch(sortConfig.key) {
+              case 'ativo':
+                  // Active (true) should come first in ascending, so reversed logic or 0/1
+                   // If asc: false (0) < true (1). 
+                   // If we want Active first on Asc, we treat True as smaller? No, standard is False first.
+                   // Let's stick to standard boolean: false < true.
+                   compareResult = (a.ativo === b.ativo) ? 0 : a.ativo ? 1 : -1;
+                   break;
+              case 'codigo':
+                  compareResult = a.codigoInterno.localeCompare(b.codigoInterno, undefined, {numeric: true});
+                  break;
+              case 'nome':
+                  compareResult = a.nome.localeCompare(b.nome);
+                  break;
+              case 'grupo':
+                  const groupA = groups.find(g => g.id === a.grupoProdutoId)?.nome || '';
+                  const groupB = groups.find(g => g.id === b.grupoProdutoId)?.nome || '';
+                  compareResult = groupA.localeCompare(groupB);
+                  break;
+              case 'tipo':
+                  compareResult = a.tipo.localeCompare(b.tipo);
+                  break;
+              case 'preco':
+                  compareResult = a.preco - b.preco;
+                  break;
           }
-          if (sortConfig.key === 'grupo') {
-              const groupA = groups.find(g => g.id === a.grupoProdutoId)?.nome || '';
-              const groupB = groups.find(g => g.id === b.grupoProdutoId)?.nome || '';
-              return sortConfig.direction === 'asc' 
-                ? groupA.localeCompare(groupB) 
-                : groupB.localeCompare(groupA);
-          }
-          return 0;
+
+          return sortConfig.direction === 'asc' ? compareResult : -compareResult;
       });
   }, [filteredProducts, sortConfig, groups]);
 
@@ -313,8 +330,24 @@ const Products: React.FC = () => {
         <table className="w-full text-left">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Status</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Código</th>
+              <th 
+                  className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
+                  onClick={() => handleSort('ativo')}
+              >
+                   <div className="flex items-center gap-1">
+                      Status
+                      <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'ativo' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
+                  </div>
+              </th>
+              <th 
+                  className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
+                  onClick={() => handleSort('codigo')}
+              >
+                  <div className="flex items-center gap-1">
+                      Código
+                      <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'codigo' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
+                  </div>
+              </th>
               <th 
                   className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
                   onClick={() => handleSort('nome')}
@@ -333,8 +366,24 @@ const Products: React.FC = () => {
                       <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'grupo' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
                   </div>
               </th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Tipo</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Preço</th>
+              <th 
+                  className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
+                  onClick={() => handleSort('tipo')}
+              >
+                  <div className="flex items-center gap-1">
+                      Tipo
+                      <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'tipo' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
+                  </div>
+              </th>
+              <th 
+                  className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
+                  onClick={() => handleSort('preco')}
+              >
+                  <div className="flex items-center gap-1">
+                      Preço
+                      <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'preco' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
+                  </div>
+              </th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-right">Ações</th>
             </tr>
           </thead>

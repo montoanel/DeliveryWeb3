@@ -54,6 +54,7 @@ export interface Cliente {
 export interface GrupoProduto {
   id: number;
   nome: string;
+  ativo: boolean;
 }
 
 export type TipoProduto = 'Principal' | 'Complemento';

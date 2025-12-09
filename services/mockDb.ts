@@ -25,10 +25,10 @@ class MockDB {
   private seed() {
     // 1. Grupos
     this.grupos = [
-        { id: 1, nome: 'Lanches' }, 
-        { id: 2, nome: 'Bebidas' },
-        { id: 3, nome: 'Açaí' },
-        { id: 4, nome: 'Adicionais / Complementos' }
+        { id: 1, nome: 'Lanches', ativo: true }, 
+        { id: 2, nome: 'Bebidas', ativo: true },
+        { id: 3, nome: 'Açaí', ativo: true },
+        { id: 4, nome: 'Adicionais / Complementos', ativo: true }
     ];
 
     // 2. Produtos
