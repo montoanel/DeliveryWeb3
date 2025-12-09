@@ -25,6 +25,13 @@ export enum PedidoStatus {
   Cancelado = 'Cancelado'
 }
 
+export enum StatusCozinha {
+  Aguardando = 'Aguardando',
+  Preparando = 'Preparando',
+  Pronto = 'Pronto',
+  Entregue = 'Entregue' // Sai da tela da cozinha
+}
+
 // Entities (Models)
 export interface Bairro {
   id: number;
@@ -119,7 +126,8 @@ export interface Pedido {
   clienteId?: number;
   clienteNome?: string; // Denormalized for display
   total: number;
-  status: PedidoStatus;
+  status: PedidoStatus; // Financeiro / Geral
+  statusCozinha: StatusCozinha; // Controle de Produção
   itens: PedidoItem[];
   
   // Payment Details (Updated for Partial Payments)

@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento, Usuario, Bairro } from '../types';
+import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento, Usuario, Bairro, StatusCozinha } from '../types';
 import { db } from '../services/mockDb';
 import { 
   Search, Plus, Trash2, User, Truck, ShoppingBag, 
-  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit, AlertCircle, RefreshCcw, Printer, Wallet, Minus, PlusCircle, MinusCircle
+  ClipboardList, Zap, Save, X, Calculator, Calendar, CreditCard, Banknote, MapPin, Package, CheckSquare, Square, Edit, AlertCircle, RefreshCcw, Printer, Wallet, Minus, PlusCircle, MinusCircle, ChefHat, Clock, Flame, CheckCircle
 } from 'lucide-react';
 
 // Helper for accent-insensitive search
@@ -199,7 +198,9 @@ const POS: React.FC<POSProps> = ({ user }) => {
 
   // --- Data Loading ---
   const refreshData = () => {
-    setOrders(db.getPedidos());
+    // Sort orders by most recent
+    const sorted = [...db.getPedidos()].sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    setOrders(sorted);
     setAvailableProducts(db.getProdutos());
     setAvailableClients(db.getClientes());
     setAvailableBairros(db.getBairros());
@@ -209,7 +210,12 @@ const POS: React.FC<POSProps> = ({ user }) => {
 
   useEffect(() => {
     refreshData();
-  }, []);
+    // Optional polling for kitchen status updates in list view
+    const interval = setInterval(() => {
+        if(view === 'list') refreshData();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [view]);
 
   // Print Trigger
   useEffect(() => {
@@ -488,17 +494,19 @@ const POS: React.FC<POSProps> = ({ user }) => {
 
     const total = calculateCartTotal();
     const id = editingOrderId || (Math.floor(Math.random() * 10000) + 1000);
+    const existingOrder = editingOrderId ? orders.find(o => o.id === editingOrderId) : null;
 
     const pedido: Pedido = {
         id,
-        data: editingOrderId ? orders.find(o => o.id === editingOrderId)?.data || new Date().toISOString() : new Date().toISOString(),
+        data: existingOrder ? existingOrder.data : new Date().toISOString(),
         tipoAtendimento: currentOrderType,
         clienteId: selectedClient?.id,
         clienteNome: selectedClient?.nome || 'Consumidor Final',
         total: total,
         status: existingPayments.length > 0 ? currentOrderStatus : PedidoStatus.Pendente, 
         itens: cart,
-        pagamentos: existingPayments 
+        pagamentos: existingPayments,
+        statusCozinha: existingOrder?.statusCozinha || StatusCozinha.Aguardando
     };
 
     db.savePedido(pedido);
@@ -606,22 +614,25 @@ const POS: React.FC<POSProps> = ({ user }) => {
             total: total,
             status: PedidoStatus.Pendente,
             itens: cart,
-            pagamentos: []
+            pagamentos: [],
+            statusCozinha: StatusCozinha.Aguardando
         };
         db.savePedido(pedido);
         setEditingOrderId(orderId);
      } else {
         // Update order total/items before payment just in case
+        const existingOrder = orders.find(o => o.id === orderId);
         const pedido: Pedido = {
             id: orderId,
-            data: orders.find(o => o.id === orderId)?.data || new Date().toISOString(),
+            data: existingOrder?.data || new Date().toISOString(),
             tipoAtendimento: currentOrderType,
             clienteId: selectedClient?.id,
             clienteNome: selectedClient?.nome || 'Consumidor Final',
             total: total,
             status: currentOrderStatus,
             itens: cart,
-            pagamentos: existingPayments
+            pagamentos: existingPayments,
+            statusCozinha: existingOrder?.statusCozinha || StatusCozinha.Aguardando
         };
         db.savePedido(pedido);
      }
@@ -903,6 +914,16 @@ const POS: React.FC<POSProps> = ({ user }) => {
       default: return 'bg-gray-100 text-gray-700';
     }
   };
+  
+  const getKitchenStatusIcon = (status: StatusCozinha) => {
+      switch(status) {
+          case StatusCozinha.Aguardando: return <Clock size={16} className="text-gray-500"/>;
+          case StatusCozinha.Preparando: return <Flame size={16} className="text-orange-500 animate-pulse"/>;
+          case StatusCozinha.Pronto: return <CheckCircle size={16} className="text-green-600"/>;
+          case StatusCozinha.Entregue: return <Truck size={16} className="text-blue-600"/>;
+          default: return <Clock size={16} className="text-gray-400"/>;
+      }
+  };
 
   // Render Action Buttons based on Logic
   const renderActionButtons = () => {
@@ -1049,7 +1070,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase">ID</th>
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase">Data/Hora</th>
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase">Cliente</th>
-                  <th className="p-3 text-xs font-bold text-gray-600 uppercase">Pagamentos</th>
+                  <th className="p-3 text-xs font-bold text-gray-600 uppercase">Produção</th>
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase text-right">Total (R$)</th>
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase text-center">Status</th>
                 </tr>
@@ -1068,11 +1089,13 @@ const POS: React.FC<POSProps> = ({ user }) => {
                     <td className="p-3 text-sm text-gray-500">{order.id}</td>
                     <td className="p-3 text-sm text-gray-500">{new Date(order.data).toLocaleString('pt-BR')}</td>
                     <td className="p-3 text-sm text-gray-700">{order.clienteNome}</td>
-                    <td className="p-3 text-sm text-gray-600">
-                      {order.pagamentos && order.pagamentos.length > 0 
-                          ? `${order.pagamentos.length}x (${paid.toFixed(2)})`
-                          : '-'
-                      }
+                    <td className="p-3">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                            {getKitchenStatusIcon(order.statusCozinha)}
+                            <span className={`${order.statusCozinha === StatusCozinha.Preparando ? 'text-orange-600' : 'text-gray-600'}`}>
+                                {order.statusCozinha}
+                            </span>
+                        </div>
                     </td>
                     <td className="p-3 text-sm font-bold text-gray-800 text-right">{order.total.toFixed(2)}</td>
                     <td className="p-3 text-center">

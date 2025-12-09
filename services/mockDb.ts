@@ -2,7 +2,7 @@
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
-  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento
+  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento, StatusCozinha
 } from '../types';
 
 class MockDB {
@@ -269,12 +269,24 @@ class MockDB {
           pedido.status = PedidoStatus.Pago;
       }
 
+      // Default Kitchen Status if new or undefined
+      if (!pedido.statusCozinha) {
+          pedido.statusCozinha = StatusCozinha.Aguardando;
+      }
+
       // Check if updating
       const index = this.pedidos.findIndex(p => p.id === pedido.id);
       if(index >= 0) {
           this.pedidos[index] = pedido;
       } else {
           this.pedidos.push(pedido);
+      }
+  }
+
+  updateKitchenStatus(orderId: number, status: StatusCozinha) {
+      const index = this.pedidos.findIndex(p => p.id === orderId);
+      if(index >= 0) {
+          this.pedidos[index] = { ...this.pedidos[index], statusCozinha: status };
       }
   }
 

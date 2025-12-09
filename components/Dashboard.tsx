@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/mockDb';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { DollarSign, ShoppingBag, TrendingUp, AlertCircle } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, AlertCircle, ChefHat } from 'lucide-react';
+import { StatusCozinha, PedidoStatus } from '../types';
 
 const Dashboard: React.FC = () => {
   const [saldo, setSaldo] = useState(0);
   const [vendasHoje, setVendasHoje] = useState(0);
   const [countPedidos, setCountPedidos] = useState(0);
+  const [filaCozinha, setFilaCozinha] = useState(0);
 
   // Simulate fetching data
   useEffect(() => {
@@ -14,6 +16,13 @@ const Dashboard: React.FC = () => {
       setSaldo(db.getSaldoCaixa());
       setVendasHoje(db.getVendasDoDia());
       setCountPedidos(db.getPedidos().length);
+
+      // Calcular fila da cozinha (Aguardando + Preparando)
+      const pedidosAtivos = db.getPedidos().filter(p => 
+        p.status !== PedidoStatus.Cancelado && 
+        (p.statusCozinha === StatusCozinha.Aguardando || p.statusCozinha === StatusCozinha.Preparando)
+      );
+      setFilaCozinha(pedidosAtivos.length);
     };
     
     loadData();
@@ -58,22 +67,22 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
-          <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
-            <ShoppingBag size={24} />
+          <div className="p-3 bg-orange-100 text-orange-600 rounded-full">
+            <ChefHat size={24} />
           </div>
           <div>
-            <p className="text-sm text-gray-500">Total Pedidos</p>
-            <h3 className="text-2xl font-bold text-gray-800">{countPedidos}</h3>
+            <p className="text-sm text-gray-500">Fila da Cozinha</p>
+            <h3 className="text-2xl font-bold text-gray-800">{filaCozinha} <span className="text-xs font-normal text-gray-400">pedidos</span></h3>
           </div>
         </div>
         
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-4">
-           <div className="p-3 bg-orange-100 text-orange-600 rounded-full">
-            <AlertCircle size={24} />
+           <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
+            <ShoppingBag size={24} />
           </div>
            <div>
-            <p className="text-sm text-gray-500">Status Sistema</p>
-            <h3 className="text-lg font-bold text-green-600">Online</h3>
+            <p className="text-sm text-gray-500">Total Pedidos</p>
+            <h3 className="text-2xl font-bold text-gray-800">{countPedidos}</h3>
           </div>
         </div>
       </div>
