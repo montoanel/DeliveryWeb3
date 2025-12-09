@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
 import CashControl from './components/CashControl';
 import Products from './components/Products';
+import ProductGroups from './components/ProductGroups';
 import Clients from './components/Clients';
 import PaymentMethods from './components/PaymentMethods';
 import AddonConfig from './components/AddonConfig';
@@ -65,6 +66,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           <div className="pt-4 mt-4 border-t border-gray-100">
             {sidebarOpen && <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Cadastros</h3>}
             <SidebarLink to="/produtos" icon={Package} label={sidebarOpen ? "Produtos" : ""} />
+            <SidebarLink to="/grupos" icon={Tag} label={sidebarOpen ? "Grupos de Produtos" : ""} />
             <SidebarLink to="/config-adicionais" icon={Layers} label={sidebarOpen ? "Config. Adicionais" : ""} />
             <SidebarLink to="/clientes" icon={Users} label={sidebarOpen ? "Clientes" : ""} />
             <SidebarLink to="/bairros" icon={MapPin} label={sidebarOpen ? "Bairros / Taxas" : ""} />
@@ -135,6 +137,7 @@ const App: React.FC = () => {
           <Route path="/vendas" element={<POS user={user} />} />
           <Route path="/caixa" element={<CashControl user={user} />} />
           <Route path="/produtos" element={<Products />} />
+          <Route path="/grupos" element={<ProductGroups />} />
           <Route path="/config-adicionais" element={<AddonConfig />} />
           <Route path="/clientes" element={<Clients />} />
           <Route path="/bairros" element={<Neighborhoods />} />

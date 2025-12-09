@@ -183,6 +183,17 @@ class MockDB {
       }
   }
   deleteProduto(id: number) { this.produtos = this.produtos.filter(p => p.id !== id); }
+  
+  saveGrupo(item: GrupoProduto) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.grupos.map(p => p.id)) + 1;
+          this.grupos.push(item);
+      } else {
+          const index = this.grupos.findIndex(p => p.id === item.id);
+          if(index >= 0) this.grupos[index] = item;
+      }
+  }
+  deleteGrupo(id: number) { this.grupos = this.grupos.filter(p => p.id !== id); }
 
   saveCliente(item: Cliente) {
       if(item.id === 0) {

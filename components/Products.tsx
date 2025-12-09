@@ -1,14 +1,18 @@
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../services/mockDb';
 import { Produto, GrupoProduto, TipoProduto } from '../types';
-import { Plus, Search, Edit2, Trash2, Save, X, Package, Copy } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Save, X, Package, Copy, ArrowUpDown, Tag } from 'lucide-react';
 
 const Products: React.FC = () => {
   const [view, setView] = useState<'list' | 'form'>('list');
   const [products, setProducts] = useState<Produto[]>([]);
   const [groups, setGroups] = useState<GrupoProduto[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sorting State
+  const [sortConfig, setSortConfig] = useState<{key: 'nome' | 'grupo', direction: 'asc' | 'desc'} | null>(null);
 
   // Form State
   const initialFormState: Produto = {
@@ -71,11 +75,41 @@ const Products: React.FC = () => {
     alert('Produto salvo com sucesso!');
   };
 
+  const handleSort = (key: 'nome' | 'grupo') => {
+      let direction: 'asc' | 'desc' = 'asc';
+      if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+          direction = 'desc';
+      }
+      setSortConfig({ key, direction });
+  };
+
+  // 1. Filter
   const filteredProducts = products.filter(p => 
     p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.codigoBarras.includes(searchTerm) ||
     p.codigoInterno.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // 2. Sort
+  const sortedProducts = React.useMemo(() => {
+      if (!sortConfig) return filteredProducts;
+      
+      return [...filteredProducts].sort((a, b) => {
+          if (sortConfig.key === 'nome') {
+              return sortConfig.direction === 'asc' 
+                ? a.nome.localeCompare(b.nome) 
+                : b.nome.localeCompare(a.nome);
+          }
+          if (sortConfig.key === 'grupo') {
+              const groupA = groups.find(g => g.id === a.grupoProdutoId)?.nome || '';
+              const groupB = groups.find(g => g.id === b.grupoProdutoId)?.nome || '';
+              return sortConfig.direction === 'asc' 
+                ? groupA.localeCompare(groupB) 
+                : groupB.localeCompare(groupA);
+          }
+          return 0;
+      });
+  }, [filteredProducts, sortConfig, groups]);
 
   const units = ['UN', 'KG', 'LT', 'M', 'CX', 'PC', 'POR'];
 
@@ -249,12 +283,17 @@ const Products: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Package className="text-blue-600" /> Produtos
         </h1>
-        <button 
-          onClick={handleNew}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
-        >
-          <Plus size={20} /> Novo Produto
-        </button>
+        <div className="flex gap-2">
+            <Link to="/grupos" className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm">
+                <Tag size={20} /> Gerenciar Grupos
+            </Link>
+            <button 
+            onClick={handleNew}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+            >
+            <Plus size={20} /> Novo Produto
+            </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -276,14 +315,33 @@ const Products: React.FC = () => {
             <tr>
               <th className="p-4 font-semibold text-gray-600 text-sm">Status</th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Código</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Nome</th>
+              <th 
+                  className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
+                  onClick={() => handleSort('nome')}
+              >
+                  <div className="flex items-center gap-1">
+                      Nome
+                      <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'nome' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
+                  </div>
+              </th>
+              <th 
+                  className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
+                  onClick={() => handleSort('grupo')}
+              >
+                  <div className="flex items-center gap-1">
+                      Grupo
+                      <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'grupo' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
+                  </div>
+              </th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Tipo</th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Preço</th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredProducts.map(product => (
+            {sortedProducts.map(product => {
+               const groupName = groups.find(g => g.id === product.grupoProdutoId)?.nome || '-';
+               return (
               <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                 <td className="p-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-bold ${product.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -295,6 +353,7 @@ const Products: React.FC = () => {
                   <div className="text-[10px] text-gray-400">{product.codigoBarras}</div>
                 </td>
                 <td className="p-4 font-medium text-gray-800">{product.nome}</td>
+                <td className="p-4 text-sm text-gray-600">{groupName}</td>
                 <td className="p-4">
                     <span className={`text-xs px-2 py-0.5 rounded border ${product.tipo === 'Principal' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
                         {product.tipo}
@@ -327,10 +386,10 @@ const Products: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            ))}
-            {filteredProducts.length === 0 && (
+            )})}
+            {sortedProducts.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-400">
+                <td colSpan={7} className="p-8 text-center text-gray-400">
                   Nenhum produto encontrado.
                 </td>
               </tr>
