@@ -145,7 +145,6 @@ class MockDB {
 
   getOperadoras() { return this.operadoras; }
   
-  // New: Get receivables for a specific account for future projection
   getRecebiveisPorConta(contaId: number, start?: string, end?: string) {
       let filtered = this.contasReceber.filter(r => r.contaDestinoId === contaId);
       
@@ -167,7 +166,6 @@ class MockDB {
   getPedidoById(id: number) { return this.pedidos.find(p => p.id === id); }
 
   getSaldoCaixa() { 
-      // Simplified: Just sum of open sessions balance
       const openSessions = this.sessoes.filter(s => s.status === StatusSessao.Aberta);
       let total = 0;
       for(const s of openSessions) {
@@ -211,11 +209,73 @@ class MockDB {
       }, 0);
   }
 
+  // --- REPORTING METHODS ---
+  getDashboardData(startDate: Date, endDate: Date) {
+      // Normalize dates
+      const start = new Date(startDate); start.setHours(0,0,0,0);
+      const end = new Date(endDate); end.setHours(23,59,59,999);
+
+      const pedidosNoPeriodo = this.pedidos.filter(p => {
+          const pDate = new Date(p.data);
+          return pDate >= start && pDate <= end && p.status !== PedidoStatus.Cancelado;
+      });
+
+      const totalVendas = pedidosNoPeriodo.reduce((acc, p) => acc + p.total, 0);
+      const totalPedidos = pedidosNoPeriodo.length;
+
+      // Sales by Payment Method
+      const salesByMethod: Record<string, number> = {};
+      pedidosNoPeriodo.forEach(p => {
+          if (p.pagamentos) {
+              p.pagamentos.forEach(pag => {
+                  salesByMethod[pag.formaPagamentoNome] = (salesByMethod[pag.formaPagamentoNome] || 0) + pag.valor;
+              });
+          }
+      });
+      const pieDataPayment = Object.keys(salesByMethod).map(key => ({ name: key, value: salesByMethod[key] }));
+
+      // Sales by Service Type
+      const salesByType: Record<string, number> = {};
+      pedidosNoPeriodo.forEach(p => {
+          salesByType[p.tipoAtendimento] = (salesByType[p.tipoAtendimento] || 0) + p.total;
+      });
+      const pieDataType = Object.keys(salesByType).map(key => ({ name: key, value: salesByType[key] }));
+
+      // Top Products
+      const productStats: Record<number, {name: string, qty: number, total: number}> = {};
+      pedidosNoPeriodo.forEach(p => {
+          p.itens.forEach(item => {
+              if (!productStats[item.produto.id]) {
+                  productStats[item.produto.id] = { name: item.produto.nome, qty: 0, total: 0 };
+              }
+              productStats[item.produto.id].qty += item.quantidade;
+              productStats[item.produto.id].total += (item.quantidade * item.produto.preco);
+          });
+      });
+      const topProducts = Object.values(productStats).sort((a,b) => b.qty - a.qty).slice(0, 5);
+
+      // Hourly Data (Aggregated for all days in period - simplified)
+      const hourlyData: Record<string, number> = {};
+      pedidosNoPeriodo.forEach(p => {
+          const hour = new Date(p.data).getHours();
+          const label = `${hour.toString().padStart(2, '0')}:00`;
+          hourlyData[label] = (hourlyData[label] || 0) + p.total;
+      });
+      const chartData = Object.keys(hourlyData).sort().map(key => ({ name: key, vendas: hourlyData[key] }));
+
+      return {
+          totalVendas,
+          totalPedidos,
+          pieDataPayment,
+          pieDataType,
+          topProducts,
+          chartData
+      };
+  }
+
   getVendasDoDia() {
-      const today = new Date().toISOString().split('T')[0];
-      return this.pedidos
-        .filter(p => p.data.startsWith(today) && p.status !== PedidoStatus.Cancelado)
-        .reduce((acc, p) => acc + p.total, 0);
+      const today = new Date();
+      return this.getDashboardData(today, today).totalVendas;
   }
 
   // --- SAVERS / DELETERS ---
@@ -450,7 +510,7 @@ class MockDB {
       };
 
       this.sessoes.push(newSession);
-      this.lancarMovimento(newSession.id, TipoOperacaoCaixa.Abertura, saldoInicial, 'Fundo de Troco', 1);
+      this.lancarMovimento(newSession.id, TipoOperacaoCaixa.Abertura, saldoInicial, 'Fundo de Troco', 1, contaOrigemId);
 
       return newSession;
   }
@@ -668,15 +728,6 @@ class MockDB {
         const forma = this.formasPagamento.find(f => f.id === pagamento.formaPagamentoId);
         if(!forma) throw new Error("Forma inválida");
         
-        // Entry of the bill given (e.g., gave 100 bill for 90 purchase)
-        // Actually, logic is: Sale Value = 90. Payment registered = 90. 
-        // But physically we got 100.
-        // If we convert change to credit, we actually KEEP the extra money in cash?
-        // No, 'Troco em Crédito' means we DON'T give money back. 
-        // So we registered 90 sale. The user gave 100. The 10 extra stays in house.
-        // We create a Credit for client of 10.
-        // Effectively, we received 100. 90 paid the order. 10 paid the credit top-up.
-        
         // Register Sale (90)
         this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, pagamento.valor, `Venda #${pedidoId}`, forma.id);
         
@@ -731,8 +782,6 @@ class MockDB {
       this.savePedido(pedido);
 
       // Register Usage in Cash (Virtual Entry?)
-      // Actually using credit does NOT affect cash balance physically.
-      // But we should track it for balancing.
       this.lancarMovimento(sessao.id, TipoOperacaoCaixa.UsoCredito, valor, `Uso Crédito Pedido #${pedidoId}`, -1);
   }
   
@@ -754,10 +803,6 @@ class MockDB {
        if (pedido.status === PedidoStatus.Pago) pedido.status = PedidoStatus.Pendente;
        
        this.savePedido(pedido);
-       
-       // Register negative movement in Cash (Estorno)
-       // We log it as a Sangria technically or a negative Sale? 
-       // To keep it simple, let's use Sangria for now to represent money leaving (returning to customer)
        
        if (pag.formaPagamentoNome === 'Crédito em Loja') {
             // Refund credit to client

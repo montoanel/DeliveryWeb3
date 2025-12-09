@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../services/mockDb';
-import { Usuario, SessaoCaixa, CaixaMovimento, TipoOperacaoCaixa, StatusSessao, ConferenciaFechamento, Caixa, ContaFinanceira } from '../types';
+import { Usuario, SessaoCaixa, CaixaMovimento, TipoOperacaoCaixa, StatusSessao, ConferenciaFechamento, Caixa, ContaFinanceira, FormaPagamento } from '../types';
 import { DollarSign, Lock, Unlock, AlertTriangle, TrendingUp, TrendingDown, History, X, ClipboardCheck, Eye, Printer, Calendar, Search, ScrollText, FileText, ArrowRight } from 'lucide-react';
 
 interface CashControlProps {
@@ -247,6 +247,7 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
   const [opObs, setOpObs] = useState('');
   // New: Treasury Integration
   const [contasFinanceiras, setContasFinanceiras] = useState<ContaFinanceira[]>([]);
+  const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
   const [selectedContaId, setSelectedContaId] = useState<number | ''>('');
 
   // Closing Modal
@@ -262,6 +263,7 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
     const activeSession = db.getSessaoAberta(user.id);
     setSession(activeSession);
     setContasFinanceiras(db.getContasFinanceiras());
+    setFormasPagamento(db.getFormasPagamento());
     
     if (activeSession) {
       setHistory(db.getCaixaMovimentos(activeSession.id));
@@ -372,6 +374,25 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
       }
   };
 
+  const getFormaPagamentoDesc = (mov: CaixaMovimento) => {
+      if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria && mov.contaDestinoId) {
+          const conta = contasFinanceiras.find(c => c.id === mov.contaDestinoId);
+          return `Dinheiro → ${conta ? conta.nome : 'Desconhecido'}`;
+      }
+      if (mov.tipoOperacao === TipoOperacaoCaixa.Reforco && mov.contaOrigemId) {
+          const conta = contasFinanceiras.find(c => c.id === mov.contaOrigemId);
+          return `${conta ? conta.nome : 'Desconhecido'} → Dinheiro`;
+      }
+      if (mov.tipoOperacao === TipoOperacaoCaixa.Abertura && mov.contaOrigemId) {
+          const conta = contasFinanceiras.find(c => c.id === mov.contaOrigemId);
+          return `${conta ? conta.nome : 'Desconhecido'} → Caixa`;
+      }
+      
+      // Default Sales/Other
+      const forma = formasPagamento.find(f => f.id === mov.formaPagamentoId);
+      return forma ? forma.nome : 'Dinheiro';
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Carregando...</div>;
 
   return (
@@ -471,6 +492,7 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                 <tr>
                     <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Data</th>
                     <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Tipo</th>
+                    <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Forma / Origem</th>
                     <th className="p-4 text-xs font-semibold text-gray-500 uppercase">Obs</th>
                     <th className="p-4 text-xs font-semibold text-gray-500 uppercase text-right">Valor</th>
                 </tr>
@@ -487,13 +509,16 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                         {getIcon(mov.tipoOperacao)} {mov.tipoOperacao}
                         </span>
                     </td>
+                    <td className="p-4 text-sm text-gray-700 font-medium">
+                        {getFormaPagamentoDesc(mov)}
+                    </td>
                     <td className="p-4 text-sm text-gray-500 truncate max-w-xs" title={mov.observacao}>{mov.observacao || '-'}</td>
                     <td className={`p-4 text-sm font-bold text-right ${isNegative ? 'text-red-600' : isNeutral ? 'text-blue-600' : 'text-green-600'}`}>
                         {isNegative ? '-' : isNeutral ? '' : '+'} R$ {mov.valor.toFixed(2)}
                     </td>
                     </tr>
                 )})}
-                {history.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-gray-400">Sem movimentos nesta sessão.</td></tr>}
+                {history.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-gray-400">Sem movimentos nesta sessão.</td></tr>}
                 </tbody>
             </table>
             </div>
