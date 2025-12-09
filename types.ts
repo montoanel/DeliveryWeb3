@@ -110,7 +110,8 @@ export interface PedidoItemAdicional {
 export interface PedidoItem {
   produto: Produto;
   quantidade: number;
-  adicionais?: PedidoItemAdicional[]; 
+  adicionais?: PedidoItemAdicional[];
+  status?: StatusCozinha; // Status individual do item
 }
 
 export interface Pagamento {
@@ -129,7 +130,7 @@ export interface Pedido {
   clienteNome?: string; // Denormalized for display
   total: number;
   status: PedidoStatus; // Financeiro / Geral
-  statusCozinha: StatusCozinha; // Controle de Produção
+  statusCozinha: StatusCozinha; // Controle de Produção (Agregado)
   itens: PedidoItem[];
   
   // Payment Details (Updated for Partial Payments)

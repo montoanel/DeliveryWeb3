@@ -2,7 +2,7 @@
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
-  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento, StatusCozinha
+  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento, StatusCozinha, SetorProducao
 } from '../types';
 
 class MockDB {
@@ -269,10 +269,15 @@ class MockDB {
           pedido.status = PedidoStatus.Pago;
       }
 
-      // Default Kitchen Status if new or undefined
+      // Default Kitchen Status for Order (Aggregated)
       if (!pedido.statusCozinha) {
           pedido.statusCozinha = StatusCozinha.Aguardando;
       }
+
+      // Initialize items kitchen status if undefined
+      pedido.itens.forEach(item => {
+          if (!item.status) item.status = StatusCozinha.Aguardando;
+      });
 
       // Check if updating
       const index = this.pedidos.findIndex(p => p.id === pedido.id);
@@ -283,11 +288,57 @@ class MockDB {
       }
   }
 
-  updateKitchenStatus(orderId: number, status: StatusCozinha) {
+  // --- REFACTORED FOR GRANULAR SECTOR UPDATES ---
+  updateKitchenStatus(orderId: number, status: StatusCozinha, sector?: SetorProducao) {
       const index = this.pedidos.findIndex(p => p.id === orderId);
-      if(index >= 0) {
-          this.pedidos[index] = { ...this.pedidos[index], statusCozinha: status };
+      if(index < 0) return;
+      
+      const pedido = this.pedidos[index];
+
+      // 1. Update individual items matching the sector
+      if (sector) {
+          pedido.itens.forEach(item => {
+              // If sector is Cozinha, we match Cozinha OR undefined (legacy)
+              // If sector is Bar, we match Bar
+              // If sector is Nenhum, we generally ignore, or match Kitchen defaults
+              
+              const itemSector = item.produto.setor || 'Cozinha';
+              if (itemSector === sector) {
+                  item.status = status;
+              }
+          });
+      } else {
+          // Fallback: update all if no sector passed
+          pedido.itens.forEach(item => item.status = status);
       }
+
+      // 2. Recalculate Aggregate Order Status
+      // Logic:
+      // If ALL items are Entregue -> Order is Entregue
+      // If ALL items are Pronto OR Entregue -> Order is Pronto
+      // If ANY item is Preparando -> Order is Preparando
+      // Default -> Aguardando
+      
+      const allItems = pedido.itens;
+      if (allItems.length === 0) return;
+
+      const allDelivered = allItems.every(i => i.status === StatusCozinha.Entregue);
+      const allReadyOrDelivered = allItems.every(i => i.status === StatusCozinha.Pronto || i.status === StatusCozinha.Entregue);
+      const anyPreparing = allItems.some(i => i.status === StatusCozinha.Preparando);
+      const anyReady = allItems.some(i => i.status === StatusCozinha.Pronto);
+
+      if (allDelivered) {
+          pedido.statusCozinha = StatusCozinha.Entregue;
+      } else if (allReadyOrDelivered) {
+          pedido.statusCozinha = StatusCozinha.Pronto;
+      } else if (anyPreparing || anyReady) {
+          // If something is ready but not all, we consider the order "In Progress" for the global view
+          pedido.statusCozinha = StatusCozinha.Preparando;
+      } else {
+          pedido.statusCozinha = StatusCozinha.Aguardando;
+      }
+
+      this.pedidos[index] = { ...pedido };
   }
 
   // --- AUTH ---

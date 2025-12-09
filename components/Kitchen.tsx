@@ -23,22 +23,38 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, activeSector, onUpdateStat
 
     // FILTER ITEMS based on Active Sector
     const relevantItems = order.itens.filter(item => {
-        // Standardize undefined sector to 'Cozinha' for backward compatibility
         const itemSector = item.produto.setor || 'Cozinha';
-        
-        // If sector is 'Nenhum', usually we don't show on KDS, or show on Cozinha?
-        // Let's assume 'Nenhum' doesn't show anywhere or defaults to Kitchen.
-        // For this logic: Filter strictly by active sector.
         return itemSector === activeSector;
     });
 
     // If no items for this sector, don't render the card
     if (relevantItems.length === 0) return null;
 
+    // Determine the "Dominant Status" of this card for this sector
+    // Logic: 
+    // If any item is Preparing -> Preparing
+    // Else if any item is Waiting -> Waiting
+    // Else if all items are Ready -> Ready
+    
+    // Actually, we are already filtered by the column in the parent component.
+    // So we just need to know what button to show.
+    
+    // Check status of items to decide button
+    const anyWaiting = relevantItems.some(i => i.status === StatusCozinha.Aguardando || !i.status);
+    const anyPreparing = relevantItems.some(i => i.status === StatusCozinha.Preparando);
+    const allReady = relevantItems.every(i => i.status === StatusCozinha.Pronto || i.status === StatusCozinha.Entregue);
+    const allDelivered = relevantItems.every(i => i.status === StatusCozinha.Entregue);
+
+    let displayStatus = StatusCozinha.Aguardando;
+    if (allDelivered) displayStatus = StatusCozinha.Entregue; // Should not appear usually
+    else if (allReady) displayStatus = StatusCozinha.Pronto;
+    else if (anyPreparing) displayStatus = StatusCozinha.Preparando;
+    else displayStatus = StatusCozinha.Aguardando;
+
     return (
         <div className={`bg-white rounded-xl shadow-md border-l-8 flex flex-col mb-4 overflow-hidden animate-in zoom-in duration-300 ${
-            order.statusCozinha === StatusCozinha.Aguardando ? 'border-gray-400' :
-            order.statusCozinha === StatusCozinha.Preparando ? 'border-yellow-400' :
+            displayStatus === StatusCozinha.Aguardando ? 'border-gray-400' :
+            displayStatus === StatusCozinha.Preparando ? 'border-yellow-400' :
             'border-green-500'
         }`}>
             {/* Header */}
@@ -64,7 +80,15 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, activeSector, onUpdateStat
                         <div className="flex items-start gap-2">
                             <span className="font-extrabold text-lg text-gray-800">{item.quantidade}x</span>
                             <div>
-                                <span className="text-lg font-medium text-gray-800 leading-tight block">{item.produto.nome}</span>
+                                <span className="text-lg font-medium text-gray-800 leading-tight block">
+                                    {item.produto.nome}
+                                </span>
+                                {/* Optional: Show item status icon */}
+                                <div className="flex items-center gap-2 mt-1">
+                                    {item.status === StatusCozinha.Pronto && <span className="text-xs bg-green-100 text-green-700 px-1 rounded font-bold">Pronto</span>}
+                                    {item.status === StatusCozinha.Entregue && <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded font-bold">Entregue</span>}
+                                </div>
+
                                 {item.adicionais && item.adicionais.length > 0 && (
                                     <div className="mt-1 space-y-0.5">
                                         {item.adicionais.map((add, i) => (
@@ -82,16 +106,16 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, activeSector, onUpdateStat
 
             {/* Footer Action */}
             <button 
-                onClick={() => onUpdateStatus(order.id, order.statusCozinha)}
+                onClick={() => onUpdateStatus(order.id, displayStatus)}
                 className={`w-full py-4 font-bold text-white text-lg flex items-center justify-center gap-2 transition-colors active:scale-95 ${
-                    order.statusCozinha === StatusCozinha.Aguardando ? 'bg-gray-700 hover:bg-gray-800' :
-                    order.statusCozinha === StatusCozinha.Preparando ? 'bg-yellow-500 hover:bg-yellow-600 text-black' :
+                    displayStatus === StatusCozinha.Aguardando ? 'bg-gray-700 hover:bg-gray-800' :
+                    displayStatus === StatusCozinha.Preparando ? 'bg-yellow-500 hover:bg-yellow-600 text-black' :
                     'bg-green-600 hover:bg-green-700'
                 }`}
             >
-                {order.statusCozinha === StatusCozinha.Aguardando && <><Flame /> INICIAR PREPARO</>}
-                {order.statusCozinha === StatusCozinha.Preparando && <><CheckCircle /> MARCAR PRONTO</>}
-                {order.statusCozinha === StatusCozinha.Pronto && <><Truck /> SAIU P/ ENTREGA</>}
+                {displayStatus === StatusCozinha.Aguardando && <><Flame /> INICIAR PREPARO</>}
+                {displayStatus === StatusCozinha.Preparando && <><CheckCircle /> MARCAR PRONTO</>}
+                {displayStatus === StatusCozinha.Pronto && <><Truck /> SAIU P/ ENTREGA</>}
             </button>
         </div>
     );
@@ -102,18 +126,14 @@ const Kitchen: React.FC = () => {
   const [activeSector, setActiveSector] = useState<SetorProducao>('Cozinha');
 
   const loadOrders = () => {
-    // Carrega pedidos que NÃO estão cancelados e NÃO estão Entregues (finalizados na cozinha)
-    const all = db.getPedidos().filter(p => 
-        p.status !== PedidoStatus.Cancelado && 
-        p.statusCozinha !== StatusCozinha.Entregue
-    );
-    // Ordena por data (mais antigos primeiro)
+    // Load active orders. We filter logic inside the columns.
+    const all = db.getPedidos().filter(p => p.status !== PedidoStatus.Cancelado);
     setOrders(all.sort((a,b) => new Date(a.data).getTime() - new Date(b.data).getTime()));
   };
 
   useEffect(() => {
     loadOrders();
-    const interval = setInterval(loadOrders, 3000); // Polling a cada 3s
+    const interval = setInterval(loadOrders, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -124,14 +144,47 @@ const Kitchen: React.FC = () => {
       else if (currentStatus === StatusCozinha.Preparando) nextStatus = StatusCozinha.Pronto;
       else if (currentStatus === StatusCozinha.Pronto) nextStatus = StatusCozinha.Entregue;
 
-      db.updateKitchenStatus(id, nextStatus);
+      db.updateKitchenStatus(id, nextStatus, activeSector);
       loadOrders();
   };
 
-  // Divide orders into columns
-  const waitingOrders = orders.filter(o => o.statusCozinha === StatusCozinha.Aguardando);
-  const prepOrders = orders.filter(o => o.statusCozinha === StatusCozinha.Preparando);
-  const readyOrders = orders.filter(o => o.statusCozinha === StatusCozinha.Pronto);
+  // Helper to filter orders for a column based on ACTIVE SECTOR items
+  const filterBySectorStatus = (statusList: StatusCozinha[]) => {
+      return orders.filter(order => {
+          // Find items for this sector
+          const sectorItems = order.itens.filter(i => (i.produto.setor || 'Cozinha') === activeSector);
+          if (sectorItems.length === 0) return false;
+
+          // Check if ANY item in this sector is in the target status list
+          // But we need to prioritize "lowest" status to avoid duplication across columns if mixed.
+          // Rule:
+          // Waiting Column: If any item is Waiting.
+          // Prep Column: If no Waiting, but any Preparing.
+          // Ready Column: If no Waiting/Preparing, but any Ready.
+          
+          const hasWaiting = sectorItems.some(i => i.status === StatusCozinha.Aguardando || !i.status);
+          const hasPrep = sectorItems.some(i => i.status === StatusCozinha.Preparando);
+          const hasReady = sectorItems.some(i => i.status === StatusCozinha.Pronto);
+          const allDelivered = sectorItems.every(i => i.status === StatusCozinha.Entregue);
+
+          if (allDelivered) return false; // Don't show completed sector orders
+
+          if (statusList.includes(StatusCozinha.Aguardando)) {
+              return hasWaiting;
+          }
+          if (statusList.includes(StatusCozinha.Preparando)) {
+              return !hasWaiting && hasPrep;
+          }
+          if (statusList.includes(StatusCozinha.Pronto)) {
+              return !hasWaiting && !hasPrep && hasReady;
+          }
+          return false;
+      });
+  };
+
+  const waitingOrders = filterBySectorStatus([StatusCozinha.Aguardando]);
+  const prepOrders = filterBySectorStatus([StatusCozinha.Preparando]);
+  const readyOrders = filterBySectorStatus([StatusCozinha.Pronto]);
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col">
