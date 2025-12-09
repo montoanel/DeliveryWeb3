@@ -65,11 +65,13 @@ export interface GrupoProduto {
 }
 
 export type TipoProduto = 'Principal' | 'Complemento';
+export type SetorProducao = 'Cozinha' | 'Bar' | 'Nenhum';
 
 export interface Produto {
   id: number;
   ativo: boolean; // Status
   tipo: TipoProduto; 
+  setor: SetorProducao; // Novo campo para KDS
   codigoInterno: string;
   codigoBarras: string;
   nome: string;

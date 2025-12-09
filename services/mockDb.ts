@@ -34,30 +34,30 @@ class MockDB {
     // 2. Produtos
     this.produtos = [
         // --- LANCHES (Exemplo Antigo) ---
-        { id: 1, ativo: true, tipo: 'Principal', codigoInterno: '100', codigoBarras: '7890001', nome: 'X-Burger', preco: 25.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
-        { id: 2, ativo: true, tipo: 'Principal', codigoInterno: '101', codigoBarras: '7890002', nome: 'Coca-Cola 350ml', preco: 6.00, custo: 3.00, unidadeMedida: 'UN', grupoProdutoId: 2 },
-        { id: 3, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD1', codigoBarras: '', nome: 'Bacon Extra', preco: 5.00, custo: 2.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
+        { id: 1, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: '100', codigoBarras: '7890001', nome: 'X-Burger', preco: 25.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
+        { id: 2, ativo: true, tipo: 'Principal', setor: 'Bar', codigoInterno: '101', codigoBarras: '7890002', nome: 'Coca-Cola 350ml', preco: 6.00, custo: 3.00, unidadeMedida: 'UN', grupoProdutoId: 2 },
+        { id: 3, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD1', codigoBarras: '', nome: 'Bacon Extra', preco: 5.00, custo: 2.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
 
         // --- AÇAÍ (Principais) ---
-        { id: 10, ativo: true, tipo: 'Principal', codigoInterno: 'COP180', codigoBarras: '', nome: 'Copo 180ml (2 Grátis)', preco: 13.00, custo: 4.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
-        { id: 11, ativo: true, tipo: 'Principal', codigoInterno: 'COP300', codigoBarras: '', nome: 'Copo 300ml (3 Grátis)', preco: 18.00, custo: 6.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
-        { id: 12, ativo: true, tipo: 'Principal', codigoInterno: 'COP500', codigoBarras: '', nome: 'Copo 500ml (3 Grátis)', preco: 22.00, custo: 8.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
-        { id: 13, ativo: true, tipo: 'Principal', codigoInterno: 'COP700', codigoBarras: '', nome: 'Copo 700ml (4 Grátis)', preco: 27.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
-        { id: 14, ativo: true, tipo: 'Principal', codigoInterno: 'BARCA500', codigoBarras: '', nome: 'Barca 500ml (6 Grátis)', preco: 32.00, custo: 12.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 10, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP180', codigoBarras: '', nome: 'Copo 180ml (2 Grátis)', preco: 13.00, custo: 4.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 11, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP300', codigoBarras: '', nome: 'Copo 300ml (3 Grátis)', preco: 18.00, custo: 6.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 12, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP500', codigoBarras: '', nome: 'Copo 500ml (3 Grátis)', preco: 22.00, custo: 8.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 13, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP700', codigoBarras: '', nome: 'Copo 700ml (4 Grátis)', preco: 27.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
+        { id: 14, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'BARCA500', codigoBarras: '', nome: 'Barca 500ml (6 Grátis)', preco: 32.00, custo: 12.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
 
         // --- AÇAÍ (Adicionais Padrão - R$ 3,00 se exceder) ---
-        { id: 50, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-LEITE', codigoBarras: '', nome: 'Leite em Pó', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 51, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-COND', codigoBarras: '', nome: 'Leite Condensado', preco: 3.00, custo: 0.60, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 52, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-GRAN', codigoBarras: '', nome: 'Granola', preco: 3.00, custo: 0.40, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 53, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-PAC', codigoBarras: '', nome: 'Paçoca', preco: 3.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 54, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-BAN', codigoBarras: '', nome: 'Banana', preco: 3.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 55, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-MOR', codigoBarras: '', nome: 'Morango', preco: 3.00, custo: 0.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 56, ativo: true, tipo: 'Complemento', codigoInterno: 'ADD-CHOC', codigoBarras: '', nome: 'Chocoball', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 50, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-LEITE', codigoBarras: '', nome: 'Leite em Pó', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 51, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-COND', codigoBarras: '', nome: 'Leite Condensado', preco: 3.00, custo: 0.60, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 52, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-GRAN', codigoBarras: '', nome: 'Granola', preco: 3.00, custo: 0.40, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 53, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-PAC', codigoBarras: '', nome: 'Paçoca', preco: 3.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 54, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-BAN', codigoBarras: '', nome: 'Banana', preco: 3.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 55, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-MOR', codigoBarras: '', nome: 'Morango', preco: 3.00, custo: 0.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 56, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-CHOC', codigoBarras: '', nome: 'Chocoball', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
 
         // --- AÇAÍ (Adicionais Premium - R$ 5,00 Sempre Cobra) ---
-        { id: 80, ativo: true, tipo: 'Complemento', codigoInterno: 'PREM-NUT', codigoBarras: '', nome: 'Nutella (Creme Avelã)', preco: 5.00, custo: 2.00, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 81, ativo: true, tipo: 'Complemento', codigoInterno: 'PREM-NIN', codigoBarras: '', nome: 'Creme de Ninho', preco: 5.00, custo: 1.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
-        { id: 82, ativo: true, tipo: 'Complemento', codigoInterno: 'PREM-OVOM', codigoBarras: '', nome: 'Creme de Ovomaltine', preco: 5.00, custo: 1.90, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 80, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'PREM-NUT', codigoBarras: '', nome: 'Nutella (Creme Avelã)', preco: 5.00, custo: 2.00, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 81, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'PREM-NIN', codigoBarras: '', nome: 'Creme de Ninho', preco: 5.00, custo: 1.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
+        { id: 82, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'PREM-OVOM', codigoBarras: '', nome: 'Creme de Ovomaltine', preco: 5.00, custo: 1.90, unidadeMedida: 'POR', grupoProdutoId: 4 },
     ];
 
     // 3. Configurações de Adicionais

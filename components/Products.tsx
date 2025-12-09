@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../services/mockDb';
-import { Produto, GrupoProduto, TipoProduto } from '../types';
+import { Produto, GrupoProduto, TipoProduto, SetorProducao } from '../types';
 import { Plus, Search, Edit2, Trash2, Save, X, Package, Copy, ArrowUpDown, Tag } from 'lucide-react';
 
 const Products: React.FC = () => {
@@ -19,6 +19,7 @@ const Products: React.FC = () => {
     id: 0,
     ativo: true,
     tipo: 'Principal',
+    setor: 'Cozinha',
     codigoInterno: '',
     codigoBarras: '',
     nome: '',
@@ -99,10 +100,6 @@ const Products: React.FC = () => {
           
           switch(sortConfig.key) {
               case 'ativo':
-                  // Active (true) should come first in ascending, so reversed logic or 0/1
-                   // If asc: false (0) < true (1). 
-                   // If we want Active first on Asc, we treat True as smaller? No, standard is False first.
-                   // Let's stick to standard boolean: false < true.
                    compareResult = (a.ativo === b.ativo) ? 0 : a.ativo ? 1 : -1;
                    break;
               case 'codigo':
@@ -257,19 +254,32 @@ const Products: React.FC = () => {
             </div>
           </div>
 
-          {/* Group Row */}
-          <div className="mb-8">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Grupo de Produto</label>
-            <div className="flex gap-2">
-              <select 
-                value={formData.grupoProdutoId}
-                onChange={(e) => setFormData({...formData, grupoProdutoId: parseInt(e.target.value)})}
-                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              >
-                {groups.map(g => (
-                  <option key={g.id} value={g.id}>{g.nome}</option>
-                ))}
-              </select>
+          {/* Group & Sector Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Grupo de Produto</label>
+                <select 
+                    value={formData.grupoProdutoId}
+                    onChange={(e) => setFormData({...formData, grupoProdutoId: parseInt(e.target.value)})}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                    {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.nome}</option>
+                    ))}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Setor de Produção (KDS)</label>
+                <select 
+                    value={formData.setor || 'Cozinha'}
+                    onChange={(e) => setFormData({...formData, setor: e.target.value as SetorProducao})}
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                >
+                    <option value="Cozinha">Cozinha (Lanches/Comidas)</option>
+                    <option value="Bar">Bar / Copa (Bebidas)</option>
+                    <option value="Nenhum">Nenhum (Direto)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Define em qual tela este produto aparecerá.</p>
             </div>
           </div>
 
@@ -366,6 +376,7 @@ const Products: React.FC = () => {
                       <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'grupo' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
                   </div>
               </th>
+               <th className="p-4 font-semibold text-gray-600 text-sm">Setor</th>
               <th 
                   className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
                   onClick={() => handleSort('tipo')}
@@ -403,6 +414,7 @@ const Products: React.FC = () => {
                 </td>
                 <td className="p-4 font-medium text-gray-800">{product.nome}</td>
                 <td className="p-4 text-sm text-gray-600">{groupName}</td>
+                <td className="p-4 text-sm text-gray-500">{product.setor || 'Cozinha'}</td>
                 <td className="p-4">
                     <span className={`text-xs px-2 py-0.5 rounded border ${product.tipo === 'Principal' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
                         {product.tipo}
@@ -438,7 +450,7 @@ const Products: React.FC = () => {
             )})}
             {sortedProducts.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-8 text-center text-gray-400">
+                <td colSpan={8} className="p-8 text-center text-gray-400">
                   Nenhum produto encontrado.
                 </td>
               </tr>

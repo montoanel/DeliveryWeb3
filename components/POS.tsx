@@ -430,6 +430,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
                 id: -999, // Special ID for fee
                 ativo: true,
                 tipo: 'Principal',
+                setor: 'Nenhum', // Added property for KDS compatibility
                 codigoInterno: 'TAXA',
                 codigoBarras: '',
                 nome: `Taxa de Entrega - ${bairro.nome}`,

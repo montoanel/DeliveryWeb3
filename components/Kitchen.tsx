@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
-import { Pedido, StatusCozinha, PedidoStatus } from '../types';
-import { Clock, CheckCircle, Flame, ChefHat, AlertTriangle, Truck } from 'lucide-react';
+import { Pedido, StatusCozinha, PedidoStatus, SetorProducao } from '../types';
+import { Clock, CheckCircle, Flame, ChefHat, AlertTriangle, Truck, Wine } from 'lucide-react';
 
 const getElapsedTime = (dateStr: string) => {
     const start = new Date(dateStr).getTime();
@@ -13,12 +13,27 @@ const getElapsedTime = (dateStr: string) => {
 
 interface OrderCardProps {
     order: Pedido;
+    activeSector: SetorProducao;
     onUpdateStatus: (id: number, status: StatusCozinha) => void;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, onUpdateStatus }) => {
+const OrderCard: React.FC<OrderCardProps> = ({ order, activeSector, onUpdateStatus }) => {
     const mins = getElapsedTime(order.data);
     const isLate = mins > 20; // 20 mins alert
+
+    // FILTER ITEMS based on Active Sector
+    const relevantItems = order.itens.filter(item => {
+        // Standardize undefined sector to 'Cozinha' for backward compatibility
+        const itemSector = item.produto.setor || 'Cozinha';
+        
+        // If sector is 'Nenhum', usually we don't show on KDS, or show on Cozinha?
+        // Let's assume 'Nenhum' doesn't show anywhere or defaults to Kitchen.
+        // For this logic: Filter strictly by active sector.
+        return itemSector === activeSector;
+    });
+
+    // If no items for this sector, don't render the card
+    if (relevantItems.length === 0) return null;
 
     return (
         <div className={`bg-white rounded-xl shadow-md border-l-8 flex flex-col mb-4 overflow-hidden animate-in zoom-in duration-300 ${
@@ -44,7 +59,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onUpdateStatus }) => {
 
             {/* Items */}
             <div className="p-3 flex-1 overflow-y-auto max-h-[300px]">
-                {order.itens.map((item, idx) => (
+                {relevantItems.map((item, idx) => (
                     <div key={idx} className="mb-3 border-b border-dashed border-gray-200 pb-2 last:border-0 last:pb-0">
                         <div className="flex items-start gap-2">
                             <span className="font-extrabold text-lg text-gray-800">{item.quantidade}x</span>
@@ -84,6 +99,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onUpdateStatus }) => {
 
 const Kitchen: React.FC = () => {
   const [orders, setOrders] = useState<Pedido[]>([]);
+  const [activeSector, setActiveSector] = useState<SetorProducao>('Cozinha');
 
   const loadOrders = () => {
     // Carrega pedidos que NÃO estão cancelados e NÃO estão Entregues (finalizados na cozinha)
@@ -122,9 +138,34 @@ const Kitchen: React.FC = () => {
        <div className="flex items-center justify-between mb-6">
            <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
                <ChefHat size={32} className="text-orange-600" /> 
-               KDS - Monitor de Cozinha
+               KDS - Monitor de {activeSector}
            </h1>
-           <div className="flex gap-4">
+           
+           <div className="flex gap-4 items-center">
+                {/* Sector Selector */}
+                <div className="bg-gray-100 p-1 rounded-lg flex gap-1 mr-4">
+                    <button 
+                        onClick={() => setActiveSector('Cozinha')}
+                        className={`px-4 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2 ${
+                            activeSector === 'Cozinha' 
+                            ? 'bg-white text-orange-600 shadow-sm' 
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        <ChefHat size={18} /> Cozinha
+                    </button>
+                    <button 
+                        onClick={() => setActiveSector('Bar')}
+                        className={`px-4 py-2 rounded-md font-bold text-sm transition-all flex items-center gap-2 ${
+                            activeSector === 'Bar' 
+                            ? 'bg-white text-purple-600 shadow-sm' 
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        <Wine size={18} /> Bar / Copa
+                    </button>
+                </div>
+
                <div className="bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
                    <span className="block text-xs font-bold text-gray-500 uppercase">Aguardando</span>
                    <span className="text-2xl font-bold text-gray-800">{waitingOrders.length}</span>
@@ -146,7 +187,7 @@ const Kitchen: React.FC = () => {
                        <h2 className="text-lg font-bold text-gray-700 uppercase">Aguardando</h2>
                    </div>
                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                       {waitingOrders.map(o => <OrderCard key={o.id} order={o} onUpdateStatus={handleUpdateStatus} />)}
+                       {waitingOrders.map(o => <OrderCard key={o.id} order={o} activeSector={activeSector} onUpdateStatus={handleUpdateStatus} />)}
                        {waitingOrders.length === 0 && <div className="text-center text-gray-400 mt-10">Sem pedidos na fila</div>}
                    </div>
                </div>
@@ -158,7 +199,7 @@ const Kitchen: React.FC = () => {
                        <h2 className="text-lg font-bold text-yellow-800 uppercase">Em Preparo</h2>
                    </div>
                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                       {prepOrders.map(o => <OrderCard key={o.id} order={o} onUpdateStatus={handleUpdateStatus} />)}
+                       {prepOrders.map(o => <OrderCard key={o.id} order={o} activeSector={activeSector} onUpdateStatus={handleUpdateStatus} />)}
                         {prepOrders.length === 0 && <div className="text-center text-gray-400 mt-10 opacity-50">Fogão livre</div>}
                    </div>
                </div>
@@ -170,7 +211,7 @@ const Kitchen: React.FC = () => {
                        <h2 className="text-lg font-bold text-green-800 uppercase">Pronto / Entrega</h2>
                    </div>
                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                       {readyOrders.map(o => <OrderCard key={o.id} order={o} onUpdateStatus={handleUpdateStatus} />)}
+                       {readyOrders.map(o => <OrderCard key={o.id} order={o} activeSector={activeSector} onUpdateStatus={handleUpdateStatus} />)}
                        {readyOrders.length === 0 && <div className="text-center text-gray-400 mt-10 opacity-50">Balcão limpo</div>}
                    </div>
                </div>
