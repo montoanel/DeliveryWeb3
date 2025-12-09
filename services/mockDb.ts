@@ -2,7 +2,8 @@
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
-  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento, StatusCozinha, SetorProducao
+  TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento, StatusCozinha, SetorProducao,
+  ContaFinanceira, OperadoraCartao, ContaReceber
 } from '../types';
 
 class MockDB {
@@ -17,6 +18,11 @@ class MockDB {
   private formasPagamento: FormaPagamento[] = [];
   private configuracoesAdicionais: ConfiguracaoAdicional[] = [];
   private bairros: Bairro[] = [];
+  
+  // Financeiro
+  private contasFinanceiras: ContaFinanceira[] = [];
+  private operadoras: OperadoraCartao[] = [];
+  private contasReceber: ContaReceber[] = [];
 
   constructor() {
     this.seed();
@@ -33,19 +39,14 @@ class MockDB {
 
     // 2. Produtos
     this.produtos = [
-        // --- LANCHES (Exemplo Antigo) ---
         { id: 1, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: '100', codigoBarras: '7890001', nome: 'X-Burger', preco: 25.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
         { id: 2, ativo: true, tipo: 'Principal', setor: 'Bar', codigoInterno: '101', codigoBarras: '7890002', nome: 'Coca-Cola 350ml', preco: 6.00, custo: 3.00, unidadeMedida: 'UN', grupoProdutoId: 2 },
         { id: 3, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD1', codigoBarras: '', nome: 'Bacon Extra', preco: 5.00, custo: 2.00, unidadeMedida: 'UN', grupoProdutoId: 1 },
-
-        // --- AÇAÍ (Principais) ---
         { id: 10, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP180', codigoBarras: '', nome: 'Copo 180ml (2 Grátis)', preco: 13.00, custo: 4.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
         { id: 11, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP300', codigoBarras: '', nome: 'Copo 300ml (3 Grátis)', preco: 18.00, custo: 6.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
         { id: 12, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP500', codigoBarras: '', nome: 'Copo 500ml (3 Grátis)', preco: 22.00, custo: 8.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
         { id: 13, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'COP700', codigoBarras: '', nome: 'Copo 700ml (4 Grátis)', preco: 27.00, custo: 10.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
         { id: 14, ativo: true, tipo: 'Principal', setor: 'Cozinha', codigoInterno: 'BARCA500', codigoBarras: '', nome: 'Barca 500ml (6 Grátis)', preco: 32.00, custo: 12.00, unidadeMedida: 'UN', grupoProdutoId: 3 },
-
-        // --- AÇAÍ (Adicionais Padrão - R$ 3,00 se exceder) ---
         { id: 50, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-LEITE', codigoBarras: '', nome: 'Leite em Pó', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
         { id: 51, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-COND', codigoBarras: '', nome: 'Leite Condensado', preco: 3.00, custo: 0.60, unidadeMedida: 'POR', grupoProdutoId: 4 },
         { id: 52, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-GRAN', codigoBarras: '', nome: 'Granola', preco: 3.00, custo: 0.40, unidadeMedida: 'POR', grupoProdutoId: 4 },
@@ -53,43 +54,45 @@ class MockDB {
         { id: 54, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-BAN', codigoBarras: '', nome: 'Banana', preco: 3.00, custo: 0.30, unidadeMedida: 'POR', grupoProdutoId: 4 },
         { id: 55, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-MOR', codigoBarras: '', nome: 'Morango', preco: 3.00, custo: 0.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
         { id: 56, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'ADD-CHOC', codigoBarras: '', nome: 'Chocoball', preco: 3.00, custo: 0.50, unidadeMedida: 'POR', grupoProdutoId: 4 },
-
-        // --- AÇAÍ (Adicionais Premium - R$ 5,00 Sempre Cobra) ---
         { id: 80, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'PREM-NUT', codigoBarras: '', nome: 'Nutella (Creme Avelã)', preco: 5.00, custo: 2.00, unidadeMedida: 'POR', grupoProdutoId: 4 },
         { id: 81, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'PREM-NIN', codigoBarras: '', nome: 'Creme de Ninho', preco: 5.00, custo: 1.80, unidadeMedida: 'POR', grupoProdutoId: 4 },
         { id: 82, ativo: true, tipo: 'Complemento', setor: 'Cozinha', codigoInterno: 'PREM-OVOM', codigoBarras: '', nome: 'Creme de Ovomaltine', preco: 5.00, custo: 1.90, unidadeMedida: 'POR', grupoProdutoId: 4 },
     ];
 
     // 3. Configurações de Adicionais
-    
-    // Lista de IDs dos complementos para facilitar a criação
     const standardAddons = [50, 51, 52, 53, 54, 55, 56].map(id => ({ produtoComplementoId: id, cobrarSempre: false }));
     const premiumAddons = [80, 81, 82].map(id => ({ produtoComplementoId: id, cobrarSempre: true }));
     const todosAdicionaisAcai = [...standardAddons, ...premiumAddons];
 
     this.configuracoesAdicionais = [
-        // Copo 180ml (2 Grátis)
         { id: 1, produtoPrincipalId: 10, cobrarApartirDe: 2, itens: todosAdicionaisAcai },
-        // Copo 300ml (3 Grátis)
         { id: 2, produtoPrincipalId: 11, cobrarApartirDe: 3, itens: todosAdicionaisAcai },
-        // Copo 500ml (3 Grátis)
         { id: 3, produtoPrincipalId: 12, cobrarApartirDe: 3, itens: todosAdicionaisAcai },
-        // Copo 700ml (4 Grátis)
         { id: 4, produtoPrincipalId: 13, cobrarApartirDe: 4, itens: todosAdicionaisAcai },
-        // Barca 500ml (6 Grátis)
         { id: 5, produtoPrincipalId: 14, cobrarApartirDe: 6, itens: todosAdicionaisAcai },
-        
-        // Regra do X-Burger (Exemplo antigo mantido)
         { id: 6, produtoPrincipalId: 1, cobrarApartirDe: 0, itens: [{ produtoComplementoId: 3, cobrarSempre: true }] }
     ];
 
-    this.formasPagamento = [
-        { id: 1, nome: 'Dinheiro', ativo: true },
-        { id: 2, nome: 'Cartão de Crédito', ativo: true },
-        { id: 3, nome: 'Cartão de Débito', ativo: true },
-        { id: 4, nome: 'PIX', ativo: true },
-        { id: 5, nome: 'Voucher / VR', ativo: true }
+    // FINANCE SEED
+    this.contasFinanceiras = [
+        { id: 1, nome: 'Cofre Principal', tipo: 'Cofre', saldoAtual: 2000.00, ativo: true },
+        { id: 2, nome: 'Banco Itaú', tipo: 'Banco', saldoAtual: 50000.00, ativo: true },
+        { id: 3, nome: 'Banco Inter', tipo: 'Banco', saldoAtual: 1500.00, ativo: true },
     ];
+
+    this.operadoras = [
+        { id: 1, nome: 'Stone', taxaCredito: 3.5, diasRecebimentoCredito: 30, taxaDebito: 1.5, diasRecebimentoDebito: 1, ativo: true },
+        { id: 2, nome: 'Cielo', taxaCredito: 4.0, diasRecebimentoCredito: 30, taxaDebito: 1.8, diasRecebimentoDebito: 1, ativo: true },
+    ];
+
+    this.formasPagamento = [
+        { id: 1, nome: 'Dinheiro', ativo: true, tipoVinculo: 'Nenhum' },
+        { id: 2, nome: 'Cartão de Crédito', ativo: true, tipoVinculo: 'Operadora', operadoraId: 1 }, // Linked to Stone
+        { id: 3, nome: 'Cartão de Débito', ativo: true, tipoVinculo: 'Operadora', operadoraId: 1 }, // Linked to Stone
+        { id: 4, nome: 'PIX', ativo: true, tipoVinculo: 'Conta', contaDestinoId: 2 }, // Linked to Itau
+        { id: 5, nome: 'Voucher / VR', ativo: true, tipoVinculo: 'Nenhum' }
+    ];
+
     this.caixas = [{ id: 1, nome: 'Caixa 01', ativo: true }];
     this.usuarios = [{ id: 1, nome: 'Administrador', login: 'admin', senha: '123', perfil: 'Administrador', ativo: true, caixaPadraoId: 1 }];
     this.bairros = [
@@ -111,6 +114,10 @@ class MockDB {
   getFormasPagamento() { return this.formasPagamento; }
   getConfiguracoesAdicionais() { return this.configuracoesAdicionais; }
   getBairros() { return this.bairros; }
+  
+  getContasFinanceiras() { return this.contasFinanceiras; }
+  getOperadoras() { return this.operadoras; }
+  getContasReceber() { return this.contasReceber.sort((a,b) => new Date(a.dataPrevisao).getTime() - new Date(b.dataPrevisao).getTime()); }
 
   getPedidoById(id: number) { return this.pedidos.find(p => p.id === id); }
 
@@ -124,14 +131,11 @@ class MockDB {
       return total;
   }
   
-  // New helper to get Money balance specifically
   getSaldoDinheiroSessao(sessaoId: number): number {
       const movimentos = this.caixaMovimentos.filter(m => m.sessaoId === sessaoId);
-      // Assuming ID 1 is always Dinheiro based on Seed. ideally we'd look it up.
       const dinheiroId = 1; 
       
       return movimentos.reduce((acc, mov) => {
-          // If it's a generic opening/bleed operation, we assume it affects money
           if (mov.tipoOperacao === TipoOperacaoCaixa.Abertura || mov.tipoOperacao === TipoOperacaoCaixa.Reforco || mov.tipoOperacao === TipoOperacaoCaixa.CreditoCliente) {
              return acc + mov.valor;
           }
@@ -139,7 +143,6 @@ class MockDB {
              return acc - mov.valor;
           }
           
-          // For sales, we check the payment method
           if (mov.tipoOperacao === TipoOperacaoCaixa.Vendas) {
               if (mov.formaPagamentoId === dinheiroId) {
                   return acc + mov.valor;
@@ -150,7 +153,6 @@ class MockDB {
       }, 0);
   }
   
-  // Helper to calculate totals for a specific payment method in a session
   getSaldoFormaPagamentoSessao(sessaoId: number, formaPagamentoId: number): number {
       const movimentos = this.caixaMovimentos.filter(m => m.sessaoId === sessaoId && m.formaPagamentoId === formaPagamentoId);
       return movimentos.reduce((acc, mov) => {
@@ -217,6 +219,29 @@ class MockDB {
       }
   }
   deleteFormaPagamento(id: number) { this.formasPagamento = this.formasPagamento.filter(p => p.id !== id); }
+  
+  // Finance Savers
+  saveContaFinanceira(item: ContaFinanceira) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.contasFinanceiras.map(p => p.id)) + 1;
+          this.contasFinanceiras.push(item);
+      } else {
+          const index = this.contasFinanceiras.findIndex(p => p.id === item.id);
+          if(index >= 0) this.contasFinanceiras[index] = item;
+      }
+  }
+  deleteContaFinanceira(id: number) { this.contasFinanceiras = this.contasFinanceiras.filter(p => p.id !== id); }
+
+  saveOperadora(item: OperadoraCartao) {
+      if(item.id === 0) {
+          item.id = Math.max(0, ...this.operadoras.map(p => p.id)) + 1;
+          this.operadoras.push(item);
+      } else {
+          const index = this.operadoras.findIndex(p => p.id === item.id);
+          if(index >= 0) this.operadoras[index] = item;
+      }
+  }
+  deleteOperadora(id: number) { this.operadoras = this.operadoras.filter(p => p.id !== id); }
 
   saveConfiguracaoAdicional(item: ConfiguracaoAdicional) {
       if(item.id === 0) {
@@ -263,23 +288,19 @@ class MockDB {
   deleteBairro(id: number) { this.bairros = this.bairros.filter(p => p.id !== id); }
 
   savePedido(pedido: Pedido) {
-      // Safety Check: Force status to Paid if amount is covered
       const totalPaid = pedido.pagamentos?.reduce((acc, p) => acc + p.valor, 0) || 0;
       if (totalPaid >= (pedido.total - 0.01)) {
           pedido.status = PedidoStatus.Pago;
       }
 
-      // Default Kitchen Status for Order (Aggregated)
       if (!pedido.statusCozinha) {
           pedido.statusCozinha = StatusCozinha.Aguardando;
       }
 
-      // Initialize items kitchen status if undefined
       pedido.itens.forEach(item => {
           if (!item.status) item.status = StatusCozinha.Aguardando;
       });
 
-      // Check if updating
       const index = this.pedidos.findIndex(p => p.id === pedido.id);
       if(index >= 0) {
           this.pedidos[index] = pedido;
@@ -288,37 +309,23 @@ class MockDB {
       }
   }
 
-  // --- REFACTORED FOR GRANULAR SECTOR UPDATES ---
   updateKitchenStatus(orderId: number, status: StatusCozinha, sector?: SetorProducao) {
       const index = this.pedidos.findIndex(p => p.id === orderId);
       if(index < 0) return;
       
       const pedido = this.pedidos[index];
 
-      // 1. Update individual items matching the sector
       if (sector) {
           pedido.itens.forEach(item => {
-              // If sector is Cozinha, we match Cozinha OR undefined (legacy)
-              // If sector is Bar, we match Bar
-              // If sector is Nenhum, we generally ignore, or match Kitchen defaults
-              
               const itemSector = item.produto.setor || 'Cozinha';
               if (itemSector === sector) {
                   item.status = status;
               }
           });
       } else {
-          // Fallback: update all if no sector passed
           pedido.itens.forEach(item => item.status = status);
       }
 
-      // 2. Recalculate Aggregate Order Status
-      // Logic:
-      // If ALL items are Entregue -> Order is Entregue
-      // If ALL items are Pronto OR Entregue -> Order is Pronto
-      // If ANY item is Preparando -> Order is Preparando
-      // Default -> Aguardando
-      
       const allItems = pedido.itens;
       if (allItems.length === 0) return;
 
@@ -332,7 +339,6 @@ class MockDB {
       } else if (allReadyOrDelivered) {
           pedido.statusCozinha = StatusCozinha.Pronto;
       } else if (anyPreparing || anyReady) {
-          // If something is ready but not all, we consider the order "In Progress" for the global view
           pedido.statusCozinha = StatusCozinha.Preparando;
       } else {
           pedido.statusCozinha = StatusCozinha.Aguardando;
@@ -352,7 +358,6 @@ class MockDB {
   }
 
   getSessoesFechadas() {
-      // Returns sessions waiting for consolidation
       return this.sessoes.filter(s => s.status === StatusSessao.Fechada).sort((a,b) => new Date(b.dataFechamento!).getTime() - new Date(a.dataFechamento!).getTime());
   }
 
@@ -381,7 +386,6 @@ class MockDB {
         if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento || mov.tipoOperacao === TipoOperacaoCaixa.Troco) {
           return acc - mov.valor;
         }
-        // Critical: Using Credit should NOT increase physical cash balance
         if (mov.tipoOperacao === TipoOperacaoCaixa.UsoCredito) {
             return acc;
         }
@@ -408,7 +412,8 @@ class MockDB {
       
       this.sessoes.push(novaSessao);
       
-      // Register initial balance as movement
+      // We assume opening balance is physically there or Reforco is done later.
+      // But for logical balance, we add it.
       this.lancarMovimento(novaSessao.id, TipoOperacaoCaixa.Abertura, saldoInicial, 'Abertura de Caixa');
       
       return novaSessao;
@@ -424,15 +429,14 @@ class MockDB {
       
       this.sessoes[sessaoIndex] = {
           ...sessao,
-          status: StatusSessao.Fechada, // Aguarda consolidação
+          status: StatusSessao.Fechada, 
           dataFechamento: new Date().toISOString(),
-          saldoFinalSistema: saldoFinalCalculado, // System Calculated
-          saldoFinalInformado: totalContado,      // User Counted
+          saldoFinalSistema: saldoFinalCalculado,
+          saldoFinalInformado: totalContado, 
           conferenciaOperador: conferencia,
           quebraDeCaixa: totalContado - saldoFinalCalculado
       };
       
-      // Closing zeros the logical balance for the session history, but we record what system thinks it is
       this.lancarMovimento(sessaoId, TipoOperacaoCaixa.Fechamento, saldoFinalCalculado, 'Fechamento de Caixa');
   }
 
@@ -445,7 +449,6 @@ class MockDB {
           throw new Error("Sessão não está pronta para consolidação ou já foi consolidada.");
       }
 
-      // Re-calculate Diff based on Audited Values
       const totalAuditado = conferenciaAuditada.dinheiro + conferenciaAuditada.cartaoCredito + conferenciaAuditada.cartaoDebito + conferenciaAuditada.pix + conferenciaAuditada.voucher + conferenciaAuditada.outros;
       const diff = totalAuditado - (sessao.saldoFinalSistema || 0);
 
@@ -454,11 +457,30 @@ class MockDB {
           status: StatusSessao.Consolidada,
           dataConsolidacao: new Date().toISOString(),
           conferenciaAuditoria: conferenciaAuditada,
-          quebraDeCaixa: diff // Final Diff
+          quebraDeCaixa: diff
       };
   }
   
-  lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string, formaPagamentoId?: number) {
+  lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string, formaPagamentoId?: number, contaOrigemId?: number, contaDestinoId?: number) {
+      
+      // Treasury Logic for Transfers
+      if (tipo === TipoOperacaoCaixa.Reforco && contaOrigemId) {
+          const conta = this.contasFinanceiras.find(c => c.id === contaOrigemId);
+          if (conta) {
+              if (conta.saldoAtual < valor) throw new Error(`Saldo insuficiente no ${conta.nome} para realizar este reforço.`);
+              conta.saldoAtual -= valor;
+              obs += ` (Origem: ${conta.nome})`;
+          }
+      }
+      
+      if (tipo === TipoOperacaoCaixa.Sangria && contaDestinoId) {
+          const conta = this.contasFinanceiras.find(c => c.id === contaDestinoId);
+          if (conta) {
+              conta.saldoAtual += valor;
+              obs += ` (Destino: ${conta.nome})`;
+          }
+      }
+
       const mov: CaixaMovimento = {
           id: Math.max(0, ...this.caixaMovimentos.map(m => m.id)) + 1,
           sessaoId,
@@ -466,7 +488,9 @@ class MockDB {
           tipoOperacao: tipo,
           valor,
           observacao: obs,
-          formaPagamentoId
+          formaPagamentoId,
+          contaOrigemId,
+          contaDestinoId
       };
       this.caixaMovimentos.push(mov);
   }
@@ -483,7 +507,6 @@ class MockDB {
       const pedido = this.getPedidoById(orderId);
       if(!pedido) throw new Error("Pedido não encontrado");
 
-      // Verify Physical Cash Balance if Change is needed
       const dinheiroId = 1;
       const isDinheiro = payment.formaPagamentoId === dinheiroId;
       
@@ -494,26 +517,80 @@ class MockDB {
           }
       }
       
-      // Add payment to order
       pedido.pagamentos.push(payment);
       
-      // Automatic Status Update
       const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
       if (totalPaid >= (pedido.total - 0.01)) {
           pedido.status = PedidoStatus.Pago;
       }
       
-      // Register Movement(s)
+      // --- TREASURY LOGIC: CREATE RECEIVABLES ---
+      const formaPgto = this.formasPagamento.find(f => f.id === payment.formaPagamentoId);
+      
+      if (formaPgto) {
+          // If Linked to Operator (Credit/Debit Card)
+          if (formaPgto.tipoVinculo === 'Operadora' && formaPgto.operadoraId) {
+              const operadora = this.operadoras.find(op => op.id === formaPgto.operadoraId);
+              if (operadora) {
+                  const isDebit = formaPgto.nome.toLowerCase().includes('débito') || formaPgto.nome.toLowerCase().includes('debito');
+                  const taxa = isDebit ? operadora.taxaDebito : operadora.taxaCredito;
+                  const dias = isDebit ? operadora.diasRecebimentoDebito : operadora.diasRecebimentoCredito;
+                  
+                  const valorTaxa = (payment.valor * taxa) / 100;
+                  const valorLiquido = payment.valor - valorTaxa;
+                  
+                  const dataPrevisao = new Date();
+                  dataPrevisao.setDate(dataPrevisao.getDate() + dias);
+
+                  const receivable: ContaReceber = {
+                      id: Math.random().toString(36).substr(2, 9),
+                      pedidoId: pedido.id,
+                      dataVenda: new Date().toISOString(),
+                      dataPrevisao: dataPrevisao.toISOString(),
+                      valorBruto: payment.valor,
+                      taxaAplicada: taxa,
+                      valorLiquido: valorLiquido,
+                      status: 'Pendente',
+                      formaPagamentoNome: formaPgto.nome,
+                      origem: operadora.nome
+                  };
+                  this.contasReceber.push(receivable);
+              }
+          } 
+          // If Linked to Bank Account directly (PIX)
+          else if (formaPgto.tipoVinculo === 'Conta' && formaPgto.contaDestinoId) {
+              const conta = this.contasFinanceiras.find(c => c.id === formaPgto.contaDestinoId);
+              if (conta) {
+                  // For PIX, usually D+0. We create a Receivable marked as 'Pendente' (for conciliation) or 'Recebido'
+                  // User asked for "Check to see if everything is debiting correctly". So let's create a Receivable D+0
+                  const receivable: ContaReceber = {
+                      id: Math.random().toString(36).substr(2, 9),
+                      pedidoId: pedido.id,
+                      dataVenda: new Date().toISOString(),
+                      dataPrevisao: new Date().toISOString(), // Today
+                      valorBruto: payment.valor,
+                      taxaAplicada: 0, // Usually 0 or small fee, for now 0
+                      valorLiquido: payment.valor,
+                      status: 'Pendente', // Needs conciliation
+                      formaPagamentoNome: formaPgto.nome,
+                      origem: conta.nome
+                  };
+                  this.contasReceber.push(receivable);
+                  
+                  // Optional: Automatically increment bank balance?
+                  // conta.saldoAtual += payment.valor; 
+                  // Better to let user "Conciliate" in treasury screen to confirm receipt.
+              }
+          }
+      }
+
+      // Register Movement
       if (isDinheiro && valorBruto > 0) {
-          // 1. Entry of Total Amount Handed
           this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, valorBruto, `Pedido #${orderId} - Dinheiro (Recebido)`, payment.formaPagamentoId);
-          
-          // 2. Exit of Change
           if (valorTroco > 0) {
               this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Troco, valorTroco, `Pedido #${orderId} - Troco`, payment.formaPagamentoId);
           }
       } else {
-          // Standard logic for non-cash or exact amount
           this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
       }
   }
@@ -529,18 +606,10 @@ class MockDB {
       const cliente = this.clientes.find(c => c.id === pedido.clienteId);
       if(!cliente) throw new Error("Cliente não encontrado.");
 
-      // --- RULE: Only Registered Clients ---
-      // ID 1 is the Default/Standard Client in our Seed
       if (cliente.id === 1 || !cliente.cpfCnpj || cliente.cpfCnpj === '000.000.000-00') {
           throw new Error("Não é permitido gerar crédito para Cliente Padrão/Consumidor Final.");
       }
 
-      // --- RULE: Mandatory Fields check (Double Safety) ---
-      if (!cliente.endereco || !cliente.numero || !cliente.bairro || !cliente.telefone) {
-          throw new Error("Cadastro incompleto. Para gerar crédito, o cliente precisa de Endereço, Número, Bairro e Telefone.");
-      }
-
-      // 1. Add Payment to Order
       pedido.pagamentos.push(payment);
       
       const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
@@ -548,19 +617,9 @@ class MockDB {
           pedido.status = PedidoStatus.Pago;
       }
 
-      // 2. Register Cash Movement (We keep the FULL amount in drawer, technically)
-      // Logic: User gave 10. Sale is 6. 4 goes to credit.
-      // Drawer: +10 in Cash.
-      // Accounting: Sale +6, Customer Credit Liability +4.
-      // For simple cash flow: We register +6 Sales and +4 Credit Entry
-      
-      // Entry 1: The Sale Part
       this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
-      
-      // Entry 2: The Credit Part (Surplus stays in drawer)
       this.lancarMovimento(sessao.id, TipoOperacaoCaixa.CreditoCliente, valorTroco, `Crédito Gerado - Cliente #${cliente.id}`, payment.formaPagamentoId);
 
-      // 3. Update Client Balance
       cliente.saldoCredito = (cliente.saldoCredito || 0) + valorTroco;
   }
   
@@ -579,14 +638,12 @@ class MockDB {
           throw new Error("Saldo de crédito insuficiente.");
       }
 
-      // 1. Deduct from client
       cliente.saldoCredito = (cliente.saldoCredito || 0) - valor;
 
-      // 2. Add Payment Record (Type 'Credito')
       const payment: Pagamento = {
           id: Math.random().toString(36).substr(2, 9),
           data: new Date().toISOString(),
-          formaPagamentoId: 999, // Virtual ID for credit
+          formaPagamentoId: 999,
           formaPagamentoNome: 'Crédito Cliente',
           valor: valor
       };
@@ -597,7 +654,6 @@ class MockDB {
           pedido.status = PedidoStatus.Pago;
       }
 
-      // 3. Register Operation in Cash (Virtual Entry to balance the sale)
       this.lancarMovimento(sessao.id, TipoOperacaoCaixa.UsoCredito, valor, `Pagamento com Crédito - Cliente #${cliente.id}`);
   }
 
@@ -615,7 +671,6 @@ class MockDB {
       
       const payment = pedido.pagamentos[paymentIndex];
       
-      // If payment was Credit, return to client balance?
       if (payment.formaPagamentoNome === 'Crédito Cliente') {
           const cliente = this.clientes.find(c => c.id === pedido.clienteId);
           if (cliente) {
@@ -623,13 +678,9 @@ class MockDB {
           }
       }
 
-      // Remove payment
       pedido.pagamentos.splice(paymentIndex, 1);
-      
-      // Always revert status to Pendente
       pedido.status = PedidoStatus.Pendente; 
       
-      // Register negative movement (Sangria/Estorno)
       this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Sangria, payment.valor, `ESTORNO Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
   }
 }

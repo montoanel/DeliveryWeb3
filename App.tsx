@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
 import CashControl from './components/CashControl';
@@ -15,6 +15,8 @@ import Terminals from './components/Terminals';
 import Neighborhoods from './components/Neighborhoods';
 import Login from './components/Login';
 import Kitchen from './components/Kitchen';
+import Treasury from './components/Treasury';
+import FinanceConfig from './components/FinanceConfig';
 import { Usuario } from './types';
 
 const SidebarLink = ({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) => {
@@ -63,6 +65,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           <SidebarLink to="/vendas" icon={ShoppingCart} label={sidebarOpen ? "PDV / Vendas" : ""} />
           <SidebarLink to="/caixa" icon={DollarSign} label={sidebarOpen ? "Gestão de Caixa" : ""} />
           <SidebarLink to="/cozinha" icon={ChefHat} label={sidebarOpen ? "KDS / Cozinha" : ""} />
+          <SidebarLink to="/tesouraria" icon={Landmark} label={sidebarOpen ? "Tesouraria (Novo)" : ""} />
           
           {/* Cadastros Section */}
           <div className="pt-4 mt-4 border-t border-gray-100">
@@ -73,6 +76,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
             <SidebarLink to="/clientes" icon={Users} label={sidebarOpen ? "Clientes" : ""} />
             <SidebarLink to="/bairros" icon={MapPin} label={sidebarOpen ? "Bairros / Taxas" : ""} />
             <SidebarLink to="/formas-pagamento" icon={CreditCard} label={sidebarOpen ? "Formas de Pagamento" : ""} />
+            <SidebarLink to="/config-financeira" icon={Landmark} label={sidebarOpen ? "Contas e Taxas" : ""} />
             <SidebarLink to="/terminais" icon={Monitor} label={sidebarOpen ? "Terminais / Caixas" : ""} />
             <SidebarLink to="/usuarios" icon={UserCog} label={sidebarOpen ? "Usuários" : ""} />
           </div>
@@ -139,12 +143,15 @@ const App: React.FC = () => {
           <Route path="/vendas" element={<POS user={user} />} />
           <Route path="/caixa" element={<CashControl user={user} />} />
           <Route path="/cozinha" element={<Kitchen />} />
+          <Route path="/tesouraria" element={<Treasury />} />
+          
           <Route path="/produtos" element={<Products />} />
           <Route path="/grupos" element={<ProductGroups />} />
           <Route path="/config-adicionais" element={<AddonConfig />} />
           <Route path="/clientes" element={<Clients />} />
           <Route path="/bairros" element={<Neighborhoods />} />
           <Route path="/formas-pagamento" element={<PaymentMethods />} />
+          <Route path="/config-financeira" element={<FinanceConfig />} />
           <Route path="/terminais" element={<Terminals />} />
           <Route path="/usuarios" element={<UsersComponent />} />
           <Route path="*" element={<Navigate to="/" replace />} />

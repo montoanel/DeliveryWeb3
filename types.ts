@@ -94,11 +94,53 @@ export interface ConfiguracaoAdicional {
   itens: ConfiguracaoItemRule[]; 
 }
 
+// --- FINANCEIRO / TESOURARIA ---
+
+export type TipoContaFinanceira = 'Cofre' | 'Banco';
+
+export interface ContaFinanceira {
+  id: number;
+  nome: string;
+  tipo: TipoContaFinanceira;
+  saldoAtual: number;
+  ativo: boolean;
+}
+
+export interface OperadoraCartao {
+  id: number;
+  nome: string;
+  taxaCredito: number; // %
+  diasRecebimentoCredito: number;
+  taxaDebito: number; // %
+  diasRecebimentoDebito: number;
+  ativo: boolean;
+}
+
 export interface FormaPagamento {
   id: number;
   nome: string; // Dinheiro, Cartão Crédito, PIX
   ativo: boolean;
+  // Vínculos
+  tipoVinculo?: 'Nenhum' | 'Operadora' | 'Conta';
+  operadoraId?: number; // Se for cartão
+  contaDestinoId?: number; // Se for PIX ou Transferência direta
 }
+
+export interface ContaReceber {
+  id: string;
+  pedidoId: number;
+  dataVenda: string;
+  dataPrevisao: string;
+  valorBruto: number;
+  taxaAplicada: number;
+  valorLiquido: number;
+  status: 'Pendente' | 'Recebido' | 'Conciliado';
+  
+  formaPagamentoNome: string;
+  origem: string; // Nome da Operadora ou Banco
+}
+
+// --------------------------------
 
 export interface PedidoItemAdicional {
   produtoId: number;
@@ -194,6 +236,10 @@ export interface CaixaMovimento {
   valor: number;
   observacao: string;
   formaPagamentoId?: number; // Para rastrear saldo de dinheiro físico
+  
+  // Treasury Links
+  contaOrigemId?: number; // De onde veio o dinheiro (Reforço)
+  contaDestinoId?: number; // Para onde foi o dinheiro (Sangria)
 }
 
 // User Management
