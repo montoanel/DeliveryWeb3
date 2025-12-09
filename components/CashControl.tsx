@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../services/mockDb';
 import { Usuario, SessaoCaixa, CaixaMovimento, TipoOperacaoCaixa, StatusSessao, ConferenciaFechamento, Caixa } from '../types';
-import { DollarSign, Lock, Unlock, AlertTriangle, TrendingUp, TrendingDown, History, Save, X, ClipboardCheck, Eye, Printer, Calendar, Search } from 'lucide-react';
+import { DollarSign, Lock, Unlock, AlertTriangle, TrendingUp, TrendingDown, History, X, ClipboardCheck, Eye, Printer, Calendar, Search, ScrollText, FileText } from 'lucide-react';
 
 interface CashControlProps {
   user: Usuario;
@@ -12,6 +12,7 @@ interface CashControlProps {
 // Data structure for the unified print component
 interface CashPrintData {
     type: 'OPENING' | 'CLOSING' | 'AUDIT';
+    format: 'A4' | 'TICKET';
     session: SessaoCaixa;
 }
 
@@ -60,13 +61,16 @@ const CashControl: React.FC<CashControlProps> = ({ user }) => {
 // --- UNIFIED PRINT COMPONENT ---
 const PrintableCashReceipt = ({ data }: { data: CashPrintData | null }) => {
     if (!data) return null;
-    const { session, type } = data;
+    const { session, type, format } = data;
 
     // Helper for currency
     const fmt = (v: number) => `R$ ${v.toFixed(2)}`;
+    
+    // CSS Handling for Page Size
+    const isTicket = format === 'TICKET';
 
     return createPortal(
-        <div id="printable-report" className="fixed inset-0 bg-white z-[9999] p-8 text-black font-mono leading-tight">
+        <div id="printable-report" className={`fixed inset-0 bg-white z-[9999] text-black font-mono leading-tight ${isTicket ? 'p-2' : 'p-8'}`}>
             <style>{`
                 @media print {
                     #root { display: none !important; }
@@ -75,142 +79,166 @@ const PrintableCashReceipt = ({ data }: { data: CashPrintData | null }) => {
                         position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
                         background: white; z-index: 9999;
                     }
-                    @page { margin: 5mm; size: auto; }
+                    @page { 
+                        margin: ${isTicket ? '0' : '10mm'}; 
+                        size: ${isTicket ? '80mm auto' : 'A4'};
+                    }
+                    body {
+                        width: ${isTicket ? '80mm' : '100%'};
+                    }
                 }
                 @media screen {
                     #printable-report { display: none !important; }
                 }
             `}</style>
             
-            <div className="border-b-2 border-black pb-2 mb-4 text-center">
-                <h1 className="text-xl font-bold uppercase">DeliverySys</h1>
-                <h2 className="text-lg font-bold uppercase">
-                    {type === 'OPENING' && 'COMPROVANTE DE ABERTURA'}
-                    {type === 'CLOSING' && 'CONFERÊNCIA DE FECHAMENTO'}
-                    {type === 'AUDIT' && 'RELATÓRIO DE CONSOLIDAÇÃO'}
-                </h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
-                <div>
-                    <p><b>Sessão ID:</b> #{session.id}</p>
-                    <p><b>Terminal:</b> {session.caixaNome}</p>
-                    <p><b>Operador:</b> {session.usuarioNome}</p>
+            <div className={`${isTicket ? 'max-w-[72mm] mx-auto' : ''}`}>
+                
+                {/* --- HEADER --- */}
+                <div className={`border-b-2 border-black pb-2 mb-2 text-center ${isTicket ? 'text-sm' : ''}`}>
+                    <h1 className="font-bold uppercase">DeliverySys</h1>
+                    <h2 className="font-bold uppercase text-xs mt-1">
+                        {type === 'OPENING' && 'COMPROVANTE DE ABERTURA'}
+                        {type === 'CLOSING' && 'DECLARAÇÃO DE FECHAMENTO'}
+                        {type === 'AUDIT' && 'RELATÓRIO DE CONSOLIDAÇÃO'}
+                    </h2>
                 </div>
-                <div className="text-right">
-                    {type === 'OPENING' && <p><b>Data Abertura:</b> {new Date(session.dataAbertura).toLocaleString('pt-BR')}</p>}
-                    {(type === 'CLOSING' || type === 'AUDIT') && (
-                        <>
-                            <p><b>Abertura:</b> {new Date(session.dataAbertura).toLocaleString('pt-BR')}</p>
-                            <p><b>Fechamento:</b> {session.dataFechamento ? new Date(session.dataFechamento).toLocaleString('pt-BR') : 'Agora'}</p>
-                        </>
-                    )}
-                </div>
-            </div>
 
-            {/* --- OPENING LAYOUT --- */}
-            {type === 'OPENING' && (
-                <div className="mb-8">
-                    <div className="border border-black p-2 mb-4">
-                        <div className="flex justify-between font-bold text-lg">
-                            <span>FUNDO DE TROCO (INICIAL):</span>
-                            <span>{fmt(session.saldoInicial)}</span>
-                        </div>
+                {/* --- INFO BLOCK --- */}
+                <div className={`mb-4 text-xs ${isTicket ? '' : 'grid grid-cols-2 gap-4'}`}>
+                    <div>
+                        <p><b>Sessão:</b> #{session.id}</p>
+                        <p><b>Terminal:</b> {session.caixaNome}</p>
+                        <p><b>Operador:</b> {session.usuarioNome}</p>
                     </div>
-                    <p className="text-xs mb-8">Declaro que recebi o valor acima para início das operações de caixa.</p>
+                    <div className={`${isTicket ? 'mt-2 border-t border-dashed border-black pt-2' : 'text-right'}`}>
+                        {type === 'OPENING' && <p><b>Data:</b> {new Date(session.dataAbertura).toLocaleString('pt-BR')}</p>}
+                        {(type === 'CLOSING' || type === 'AUDIT') && (
+                            <>
+                                <p><b>Abertura:</b> {new Date(session.dataAbertura).toLocaleString('pt-BR')}</p>
+                                <p><b>Fechamento:</b> {session.dataFechamento ? new Date(session.dataFechamento).toLocaleString('pt-BR') : 'Agora'}</p>
+                            </>
+                        )}
+                    </div>
                 </div>
-            )}
 
-            {/* --- CLOSING LAYOUT --- */}
-            {type === 'CLOSING' && session.conferenciaOperador && (
-                <div className="mb-8">
-                    <h3 className="font-bold border-b border-black mb-2 uppercase text-sm">Valores Declarados (Operador)</h3>
-                    <table className="w-full text-sm mb-4">
-                        <tbody>
-                            <tr><td className="py-1">Dinheiro em Espécie</td><td className="text-right font-bold">{fmt(session.conferenciaOperador.dinheiro)}</td></tr>
-                            <tr><td className="py-1">Cartão de Crédito</td><td className="text-right">{fmt(session.conferenciaOperador.cartaoCredito)}</td></tr>
-                            <tr><td className="py-1">Cartão de Débito</td><td className="text-right">{fmt(session.conferenciaOperador.cartaoDebito)}</td></tr>
-                            <tr><td className="py-1">PIX</td><td className="text-right">{fmt(session.conferenciaOperador.pix)}</td></tr>
-                            <tr><td className="py-1">Voucher / Outros</td><td className="text-right">{fmt(session.conferenciaOperador.voucher + session.conferenciaOperador.outros)}</td></tr>
-                            <tr className="border-t border-black font-bold text-base">
-                                <td className="py-2">TOTAL DECLARADO</td>
-                                <td className="text-right py-2">
-                                    {fmt(
-                                        session.conferenciaOperador.dinheiro + 
-                                        session.conferenciaOperador.cartaoCredito + 
-                                        session.conferenciaOperador.cartaoDebito + 
-                                        session.conferenciaOperador.pix + 
-                                        session.conferenciaOperador.voucher + 
-                                        session.conferenciaOperador.outros
-                                    )}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    {session.conferenciaOperador.observacoes && (
-                        <div className="border border-black p-2 mb-4 text-xs">
-                            <b>Obs:</b> {session.conferenciaOperador.observacoes}
+                {/* --- OPENING BODY --- */}
+                {type === 'OPENING' && (
+                    <div className="mb-6">
+                        <div className="border border-black p-2 mb-4">
+                            <div className="flex justify-between font-bold text-sm">
+                                <span>FUNDO DE TROCO:</span>
+                                <span>{fmt(session.saldoInicial)}</span>
+                            </div>
                         </div>
-                    )}
-                </div>
-            )}
+                        <p className="text-[10px] text-justify mb-8 uppercase">
+                            Declaro ter recebido a importância acima discriminada para suprimento inicial do caixa sob minha responsabilidade.
+                        </p>
+                    </div>
+                )}
 
-            {/* --- AUDIT LAYOUT --- */}
-            {type === 'AUDIT' && session.conferenciaAuditoria && (
-                 <div className="mb-8">
-                    <h3 className="font-bold border-b border-black mb-2 uppercase text-sm">Conferência Financeira</h3>
-                    <table className="w-full text-xs mb-4">
-                        <thead>
-                            <tr className="border-b border-black text-left">
-                                <th className="py-1">Tipo</th>
-                                <th className="text-right">Sistema</th>
-                                <th className="text-right">Auditado</th>
-                                <th className="text-right">Dif.</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {[
-                                { l: 'Dinheiro', s: db.getSaldoDinheiroSessao(session.id), a: session.conferenciaAuditoria.dinheiro },
-                                { l: 'Crédito', s: db.getSaldoFormaPagamentoSessao(session.id, 2), a: session.conferenciaAuditoria.cartaoCredito },
-                                { l: 'Débito', s: db.getSaldoFormaPagamentoSessao(session.id, 3), a: session.conferenciaAuditoria.cartaoDebito },
-                                { l: 'PIX', s: db.getSaldoFormaPagamentoSessao(session.id, 4), a: session.conferenciaAuditoria.pix },
-                            ].map((row, i) => (
-                                <tr key={i} className="border-b border-black/10">
-                                    <td className="py-1">{row.l}</td>
-                                    <td className="text-right">{fmt(row.s)}</td>
-                                    <td className="text-right font-bold">{fmt(row.a)}</td>
-                                    <td className="text-right text-[10px]">{row.a - row.s === 0 ? '-' : fmt(row.a - row.s)}</td>
+                {/* --- CLOSING BODY (BLIND) --- */}
+                {type === 'CLOSING' && session.conferenciaOperador && (
+                    <div className="mb-6">
+                        <h3 className="font-bold border-b border-black mb-2 uppercase text-xs">Valores Conferidos (Operador)</h3>
+                        <table className="w-full text-xs mb-4">
+                            <tbody>
+                                <tr><td className="py-1">Dinheiro</td><td className="text-right font-bold">{fmt(session.conferenciaOperador.dinheiro)}</td></tr>
+                                <tr><td className="py-1">Crédito</td><td className="text-right">{fmt(session.conferenciaOperador.cartaoCredito)}</td></tr>
+                                <tr><td className="py-1">Débito</td><td className="text-right">{fmt(session.conferenciaOperador.cartaoDebito)}</td></tr>
+                                <tr><td className="py-1">PIX</td><td className="text-right">{fmt(session.conferenciaOperador.pix)}</td></tr>
+                                <tr><td className="py-1">Outros</td><td className="text-right">{fmt(session.conferenciaOperador.voucher + session.conferenciaOperador.outros)}</td></tr>
+                                <tr className="border-t border-black font-bold text-sm">
+                                    <td className="py-2">TOTAL DECLARADO</td>
+                                    <td className="text-right py-2">
+                                        {fmt(
+                                            session.conferenciaOperador.dinheiro + 
+                                            session.conferenciaOperador.cartaoCredito + 
+                                            session.conferenciaOperador.cartaoDebito + 
+                                            session.conferenciaOperador.pix + 
+                                            session.conferenciaOperador.voucher + 
+                                            session.conferenciaOperador.outros
+                                        )}
+                                    </td>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <div className="flex justify-end text-sm font-bold border-t border-black pt-2 mb-4">
-                        <span className="mr-4">Resultado Final (Quebra/Sobra):</span>
-                        <span>{fmt(session.quebraDeCaixa || 0)}</span>
-                    </div>
-                 </div>
-            )}
-
-            {/* --- SIGNATURES --- */}
-            <div className="mt-12 text-center text-xs">
-                <div className="grid grid-cols-1 gap-12">
-                    {/* Always show Operator Signature */}
-                    <div className="mx-auto w-64 border-t border-black pt-2">
-                        Assinatura do Operador<br/>
-                        <b>{session.usuarioNome}</b>
-                    </div>
-                    
-                    {/* Show Manager Signature for Closing/Audit */}
-                    {type !== 'OPENING' && (
-                        <div className="mx-auto w-64 border-t border-black pt-2">
-                            Assinatura do Gerente / Responsável
+                            </tbody>
+                        </table>
+                        
+                        <div className="border border-black p-2 mb-6 text-[10px] bg-gray-50">
+                            <p className="font-bold uppercase text-center mb-1">TERMO DE RESPONSABILIDADE</p>
+                            <p className="text-justify leading-tight">
+                                Declaro que os valores acima conferem EXATAMENTE com a contagem física realizada por mim neste momento. Estou ciente de que quaisquer divergências apuradas posteriormente serão passíveis de auditoria.
+                            </p>
                         </div>
-                    )}
+
+                        {session.conferenciaOperador.observacoes && (
+                            <div className="mb-4 text-xs italic">
+                                <b>Obs:</b> {session.conferenciaOperador.observacoes}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* --- AUDIT BODY --- */}
+                {type === 'AUDIT' && session.conferenciaAuditoria && (
+                    <div className="mb-6">
+                        <h3 className="font-bold border-b border-black mb-2 uppercase text-xs">Conferência Analítica</h3>
+                        <table className="w-full text-[10px] mb-4">
+                            <thead>
+                                <tr className="border-b border-black text-left">
+                                    <th className="py-1">Tipo</th>
+                                    {!isTicket && <th className="text-right">Sist.</th>}
+                                    <th className="text-right">Final</th>
+                                    <th className="text-right">Dif.</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[
+                                    { l: 'Din', s: db.getSaldoDinheiroSessao(session.id), a: session.conferenciaAuditoria.dinheiro },
+                                    { l: 'Cré', s: db.getSaldoFormaPagamentoSessao(session.id, 2), a: session.conferenciaAuditoria.cartaoCredito },
+                                    { l: 'Déb', s: db.getSaldoFormaPagamentoSessao(session.id, 3), a: session.conferenciaAuditoria.cartaoDebito },
+                                    { l: 'PIX', s: db.getSaldoFormaPagamentoSessao(session.id, 4), a: session.conferenciaAuditoria.pix },
+                                ].map((row, i) => {
+                                    const diff = row.a - row.s;
+                                    return (
+                                        <tr key={i} className="border-b border-black/10">
+                                            <td className="py-1">{row.l}</td>
+                                            {!isTicket && <td className="text-right">{fmt(row.s)}</td>}
+                                            <td className="text-right">{fmt(row.a)}</td>
+                                            <td className="text-right font-bold">{diff === 0 ? '-' : fmt(diff)}</td>
+                                        </tr>
+                                    )
+                                })}
+                            </tbody>
+                        </table>
+                        <div className="flex justify-between font-bold border-t border-black pt-2 mb-4 text-sm">
+                            <span>QUEBRA DE CAIXA:</span>
+                            <span>{fmt(session.quebraDeCaixa || 0)}</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* --- SIGNATURES --- */}
+                <div className="mt-8 text-center text-[10px]">
+                    <div className={`grid ${isTicket ? 'grid-cols-1 gap-8' : 'grid-cols-1 gap-12'}`}>
+                        {/* Always show Operator Signature */}
+                        <div className="mx-auto w-full max-w-[200px] border-t border-black pt-1">
+                            Assinatura do Operador<br/>
+                            <b>{session.usuarioNome}</b>
+                        </div>
+                        
+                        {/* Show Manager Signature for Closing/Audit */}
+                        {type !== 'OPENING' && (
+                            <div className="mx-auto w-full max-w-[200px] border-t border-black pt-1">
+                                Assinatura do Gerente / Responsável
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
-            
-            <div className="text-[10px] text-center mt-8">
-                Impresso em {new Date().toLocaleString('pt-BR')}
+                
+                <div className="text-[9px] text-center mt-6">
+                    Impresso em {new Date().toLocaleString('pt-BR')}
+                </div>
             </div>
         </div>,
         document.body
@@ -239,6 +267,9 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
 
   // Closing Modal
   const [isClosing, setIsClosing] = useState(false);
+  const [showPrintOptions, setShowPrintOptions] = useState(false); // New state to show print buttons after close
+  const [lastClosedSession, setLastClosedSession] = useState<SessaoCaixa | null>(null); // To hold data for print
+
   const [closingValues, setClosingValues] = useState<ConferenciaFechamento>({
     dinheiro: 0, cartaoCredito: 0, cartaoDebito: 0, pix: 0, voucher: 0, outros: 0, observacoes: ''
   });
@@ -282,9 +313,11 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
     try {
       const newSession = db.abrirSessao(user.id, Number(selectedCaixaId), parseFloat(initialBalance));
       
-      // Trigger Opening Receipt
+      // Default to Ticket print for opening, or ask? Let's just print ticket for speed.
+      // Or set state to show print buttons.
       setPrintData({
           type: 'OPENING',
+          format: 'TICKET', 
           session: newSession
       });
 
@@ -320,12 +353,11 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
     e.preventDefault();
     if (!session) return;
     
-    if (confirm("Confirma o fechamento do caixa?")) {
+    if (confirm("ATENÇÃO: Você está encerrando o caixa.\n\nCertifique-se de que os valores informados correspondem EXATAMENTE ao que você contou fisicamente na gaveta.")) {
         try {
              db.fecharSessao(session.id, closingValues);
              
-             // Trigger Closing Receipt (Blind Close)
-             // We construct a temporary session object for the print view since the session is now closed/historic
+             // Construct temporary object for print
              const closedSessionForPrint: SessaoCaixa = {
                  ...session,
                  status: StatusSessao.Fechada,
@@ -333,19 +365,20 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                  dataFechamento: new Date().toISOString()
              };
              
-             setPrintData({
-                 type: 'CLOSING',
-                 session: closedSessionForPrint
-             });
-
+             setLastClosedSession(closedSessionForPrint);
              setIsClosing(false);
+             setShowPrintOptions(true); // Show buttons to choose format
+             
              loadData();
-             // Alert comes after print trigger logic
-             setTimeout(() => alert("Caixa fechado com sucesso. Comprovante gerado para assinatura."), 100);
         } catch(e: any) {
             alert(e.message);
         }
     }
+  };
+
+  // Helper to trigger print from anywhere
+  const triggerPrint = (type: 'OPENING' | 'CLOSING', format: 'A4' | 'TICKET', sess: SessaoCaixa) => {
+      setPrintData({ type, format, session: sess });
   };
   
   const getIcon = (type: TipoOperacaoCaixa) => {
@@ -445,12 +478,22 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                 </div>
                 
                 <div className="mt-4 flex flex-col gap-2">
-                     <button 
-                        onClick={() => setPrintData({type: 'OPENING', session: session})}
-                        className="w-full py-2 bg-gray-100 text-gray-600 font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm"
-                    >
-                        <Printer size={16} /> Reimprimir Abertura
-                    </button>
+                     <div className="flex gap-2">
+                        <button 
+                            onClick={() => triggerPrint('OPENING', 'A4', session)}
+                            className="flex-1 py-2 bg-gray-100 text-gray-600 font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-xs"
+                            title="Comprovante A4"
+                        >
+                            <FileText size={16} /> Abrir (A4)
+                        </button>
+                        <button 
+                            onClick={() => triggerPrint('OPENING', 'TICKET', session)}
+                            className="flex-1 py-2 bg-gray-100 text-gray-600 font-bold rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-xs"
+                            title="Comprovante Cupom"
+                        >
+                            <ScrollText size={16} /> Abrir (Cupom)
+                        </button>
+                     </div>
                     <button 
                         onClick={() => setIsClosing(true)}
                         className="w-full py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
@@ -578,7 +621,7 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
             </div>
         )}
 
-        {/* Closing Modal */}
+        {/* Closing Modal Input */}
         {isClosing && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
@@ -679,6 +722,45 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                 </div>
             </div>
         )}
+
+        {/* Post-Closing Print Options Modal */}
+        {showPrintOptions && lastClosedSession && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl p-6 text-center animate-in zoom-in">
+                    <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <ClipboardCheck size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">Caixa Fechado com Sucesso!</h3>
+                    <p className="text-gray-500 mb-6">Deseja imprimir o comprovante de conferência?</p>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                         <button 
+                            onClick={() => {
+                                triggerPrint('CLOSING', 'A4', lastClosedSession);
+                                setShowPrintOptions(false);
+                            }}
+                            className="py-3 bg-blue-50 text-blue-700 font-bold rounded-lg hover:bg-blue-100 flex flex-col items-center gap-1 border border-blue-200"
+                        >
+                            <FileText size={20} />
+                            A4
+                        </button>
+                         <button 
+                            onClick={() => {
+                                triggerPrint('CLOSING', 'TICKET', lastClosedSession);
+                                setShowPrintOptions(false);
+                            }}
+                            className="py-3 bg-blue-50 text-blue-700 font-bold rounded-lg hover:bg-blue-100 flex flex-col items-center gap-1 border border-blue-200"
+                        >
+                            <ScrollText size={20} />
+                            Cupom
+                        </button>
+                    </div>
+                    <button onClick={() => setShowPrintOptions(false)} className="mt-4 text-gray-400 text-sm hover:text-gray-600">
+                        Não imprimir
+                    </button>
+                </div>
+            </div>
+        )}
         </div>
       )}
     </>
@@ -733,7 +815,7 @@ const AuditView: React.FC<{ user: Usuario }> = ({ user }) => {
                     dataConsolidacao: new Date().toISOString()
                 };
 
-                setPrintData({ type: 'AUDIT', session: updatedSession });
+                setPrintData({ type: 'AUDIT', format: 'A4', session: updatedSession });
                 
                 alert("Caixa consolidado com sucesso!");
                 setSelectedSession(null);
@@ -889,7 +971,6 @@ const HistoryView: React.FC<{ user: Usuario }> = ({ user }) => {
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [sessions, setSessions] = useState<SessaoCaixa[]>([]);
-    const [reportSession, setReportSession] = useState<SessaoCaixa | null>(null);
     const [printData, setPrintData] = useState<CashPrintData | null>(null);
 
     const loadHistory = () => {
@@ -911,8 +992,8 @@ const HistoryView: React.FC<{ user: Usuario }> = ({ user }) => {
         }
     }, [printData]);
     
-    const handlePrintHistory = (s: SessaoCaixa) => {
-        setPrintData({ type: 'AUDIT', session: s });
+    const handlePrintHistory = (s: SessaoCaixa, format: 'A4' | 'TICKET') => {
+        setPrintData({ type: 'AUDIT', format, session: s });
     };
 
     return (
@@ -988,13 +1069,22 @@ const HistoryView: React.FC<{ user: Usuario }> = ({ user }) => {
                                     </span>
                                 </td>
                                 <td className="p-4 text-center">
-                                    <button 
-                                        onClick={() => handlePrintHistory(s)}
-                                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
-                                        title="Imprimir Relatório de Conferência"
-                                    >
-                                        <Printer size={18} />
-                                    </button>
+                                    <div className="flex gap-2 justify-center">
+                                        <button 
+                                            onClick={() => handlePrintHistory(s, 'A4')}
+                                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                                            title="Imprimir A4"
+                                        >
+                                            <FileText size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => handlePrintHistory(s, 'TICKET')}
+                                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                                            title="Imprimir Cupom"
+                                        >
+                                            <ScrollText size={18} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         )
