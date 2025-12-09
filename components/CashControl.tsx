@@ -826,6 +826,12 @@ const AuditView: React.FC<{ user: Usuario }> = ({ user }) => {
             }
         }
     };
+    
+    // Allow re-printing the closing declaration from the list
+    const handlePrintClosing = (e: React.MouseEvent, s: SessaoCaixa, format: 'A4' | 'TICKET') => {
+        e.stopPropagation(); // Don't select session
+        setPrintData({ type: 'CLOSING', format, session: s });
+    };
 
     // Helper to compare values rows
     const renderComparisonRow = (label: string, field: keyof ConferenciaFechamento, systemVal: number = 0) => {
@@ -882,6 +888,27 @@ const AuditView: React.FC<{ user: Usuario }> = ({ user }) => {
                                 </div>
                                 <div className="text-purple-600 flex items-center gap-1 text-xs font-bold">
                                     <ClipboardCheck size={14} /> Conferir
+                                </div>
+                            </div>
+                            
+                            {/* NEW: Print Buttons for Closing Declaration */}
+                            <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+                                <span className="text-[10px] text-gray-400 uppercase font-bold">Imprimir Declaração</span>
+                                <div className="flex gap-2">
+                                     <button 
+                                        onClick={(e) => handlePrintClosing(e, s, 'TICKET')}
+                                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                        title="Imprimir Cupom"
+                                     >
+                                         <ScrollText size={16} />
+                                     </button>
+                                     <button 
+                                        onClick={(e) => handlePrintClosing(e, s, 'A4')}
+                                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                        title="Imprimir A4"
+                                     >
+                                         <FileText size={16} />
+                                     </button>
                                 </div>
                             </div>
                         </div>
