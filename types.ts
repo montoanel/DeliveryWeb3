@@ -124,6 +124,7 @@ export interface OperadoraCartao {
   diasRecebimentoCredito: number;
   taxaDebito: number; // %
   diasRecebimentoDebito: number;
+  contaVinculadaId?: number; // ID da Conta Bancária onde cai o dinheiro (Ex: Conta Stone)
   ativo: boolean;
 }
 
@@ -149,6 +150,7 @@ export interface ContaReceber {
   
   formaPagamentoNome: string;
   origem: string; // Nome da Operadora ou Banco
+  contaDestinoId?: number; // Para facilitar filtragem por conta
 }
 
 // --------------------------------

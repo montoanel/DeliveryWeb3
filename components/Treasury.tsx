@@ -13,6 +13,7 @@ const Treasury: React.FC = () => {
     // Detail View State
     const [selectedAccount, setSelectedAccount] = useState<ContaFinanceira | null>(null);
     const [movements, setMovements] = useState<MovimentoConta[]>([]);
+    const [accountReceivables, setAccountReceivables] = useState<ContaReceber[]>([]); // New State
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
@@ -29,17 +30,17 @@ const Treasury: React.FC = () => {
 
     const handleSelectAccount = (account: ContaFinanceira) => {
         setSelectedAccount(account);
-        // Default filter: Current month? Or last 30 days?
-        // Let's load all for now or empty filter
         setStartDate('');
         setEndDate('');
         setMovements(db.getMovimentosConta(account.id));
+        setAccountReceivables(db.getRecebiveisPorConta(account.id)); // Load specific receivables
         setView('account-detail');
     };
 
     const handleFilterMovements = () => {
         if (!selectedAccount) return;
         setMovements(db.getMovimentosConta(selectedAccount.id, startDate, endDate));
+        setAccountReceivables(db.getRecebiveisPorConta(selectedAccount.id, startDate, endDate));
     };
 
     const saldoCofres = contas.filter(c => c.tipo === 'Cofre').reduce((acc, c) => acc + c.saldoAtual, 0);
@@ -74,44 +75,78 @@ const Treasury: React.FC = () => {
                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="p-2 border border-gray-300 rounded text-sm"/>
                     </div>
                     <button onClick={handleFilterMovements} className="px-4 py-2 bg-blue-600 text-white rounded font-bold text-sm hover:bg-blue-700">Filtrar</button>
-                    <button onClick={() => {setStartDate(''); setEndDate(''); if(selectedAccount) setMovements(db.getMovimentosConta(selectedAccount.id))}} className="px-4 py-2 bg-gray-100 text-gray-600 rounded font-bold text-sm hover:bg-gray-200">Limpar</button>
+                    <button onClick={() => {setStartDate(''); setEndDate(''); if(selectedAccount) { setMovements(db.getMovimentosConta(selectedAccount.id)); setAccountReceivables(db.getRecebiveisPorConta(selectedAccount.id)); }}} className="px-4 py-2 bg-gray-100 text-gray-600 rounded font-bold text-sm hover:bg-gray-200">Limpar</button>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <table className="w-full text-left">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="p-4 text-xs font-bold uppercase text-gray-500">Data</th>
-                                <th className="p-4 text-xs font-bold uppercase text-gray-500">Descrição</th>
-                                <th className="p-4 text-xs font-bold uppercase text-gray-500 text-center">Tipo</th>
-                                <th className="p-4 text-xs font-bold uppercase text-gray-500 text-right">Valor</th>
-                                <th className="p-4 text-xs font-bold uppercase text-gray-500 text-right">Saldo Após</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {movements.map(m => (
-                                <tr key={m.id} className="hover:bg-gray-50">
-                                    <td className="p-4 text-sm text-gray-600">{new Date(m.data).toLocaleString()}</td>
-                                    <td className="p-4 text-sm font-medium text-gray-800">{m.descricao}</td>
-                                    <td className="p-4 text-center">
-                                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${m.tipo === 'Entrada' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                            {m.tipo === 'Entrada' ? <ArrowDownLeft size={12}/> : <ArrowUpRight size={12}/>}
-                                            {m.tipo}
-                                        </span>
-                                    </td>
-                                    <td className={`p-4 text-right font-bold ${m.tipo === 'Entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                                        R$ {m.valor.toFixed(2)}
-                                    </td>
-                                    <td className="p-4 text-right text-gray-500 font-mono text-xs">
-                                        R$ {m.saldoApos.toFixed(2)}
-                                    </td>
-                                </tr>
-                            ))}
-                            {movements.length === 0 && (
-                                <tr><td colSpan={5} className="p-8 text-center text-gray-400">Nenhuma movimentação no período.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Realized Movements */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-700">Extrato (Realizado)</div>
+                        <div className="flex-1 overflow-y-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-white border-b border-gray-200 sticky top-0">
+                                    <tr>
+                                        <th className="p-3 text-xs font-bold uppercase text-gray-500">Data</th>
+                                        <th className="p-3 text-xs font-bold uppercase text-gray-500">Descrição</th>
+                                        <th className="p-3 text-xs font-bold uppercase text-gray-500 text-right">Valor</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {movements.map(m => (
+                                        <tr key={m.id} className="hover:bg-gray-50">
+                                            <td className="p-3 text-xs text-gray-600">{new Date(m.data).toLocaleString()}</td>
+                                            <td className="p-3 text-xs font-medium text-gray-800">{m.descricao}</td>
+                                            <td className={`p-3 text-right text-xs font-bold ${m.tipo === 'Entrada' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {m.tipo === 'Saída' ? '-' : '+'} R$ {m.valor.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {movements.length === 0 && (
+                                        <tr><td colSpan={3} className="p-8 text-center text-gray-400">Nenhuma movimentação.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Pending Receivables (Future) */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[500px]">
+                        <div className="p-4 bg-yellow-50 border-b border-yellow-200 font-bold text-yellow-800 flex justify-between">
+                            <span>Lançamentos Futuros / A Compensar</span>
+                            <span className="text-xs bg-white px-2 py-1 rounded border border-yellow-300">Previsão</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-white border-b border-gray-200 sticky top-0">
+                                    <tr>
+                                        <th className="p-3 text-xs font-bold uppercase text-gray-500">Data Prev.</th>
+                                        <th className="p-3 text-xs font-bold uppercase text-gray-500">Origem</th>
+                                        <th className="p-3 text-xs font-bold uppercase text-gray-500 text-right">Valor Líq.</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {accountReceivables.filter(r => r.status === 'Pendente').map(r => (
+                                        <tr key={r.id} className="hover:bg-yellow-50">
+                                            <td className="p-3 text-xs text-gray-600">{new Date(r.dataPrevisao).toLocaleDateString()}</td>
+                                            <td className="p-3 text-xs font-medium text-gray-800">
+                                                {r.origem} (Ped #{r.pedidoId})
+                                                <div className="text-[10px] text-gray-400">Venda: {new Date(r.dataVenda).toLocaleDateString()}</div>
+                                            </td>
+                                            <td className="p-3 text-right text-xs font-bold text-blue-600">
+                                                + R$ {r.valorLiquido.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {accountReceivables.filter(r => r.status === 'Pendente').length === 0 && (
+                                        <tr><td colSpan={3} className="p-8 text-center text-gray-400">Nenhum lançamento futuro previsto para este período.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                         <div className="p-3 bg-gray-50 border-t border-gray-200 text-right text-xs text-gray-500">
+                             Total a Compensar: <b className="text-gray-800">R$ {accountReceivables.filter(r => r.status === 'Pendente').reduce((acc, r) => acc + r.valorLiquido, 0).toFixed(2)}</b>
+                         </div>
+                    </div>
                 </div>
             </div>
         );
@@ -189,10 +224,10 @@ const Treasury: React.FC = () => {
                     </div>
                 </div>
 
-                {/* List of Receivables */}
+                {/* List of Receivables (General) */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col h-[400px]">
                     <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-                        <Calendar size={20}/> Previsão de Recebimentos
+                        <Calendar size={20}/> Previsão de Recebimentos (Geral)
                     </h2>
                     <div className="flex-1 overflow-y-auto">
                         <table className="w-full text-left">

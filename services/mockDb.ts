@@ -78,19 +78,20 @@ class MockDB {
     // FINANCE SEED
     this.contasFinanceiras = [
         { id: 1, nome: 'Cofre Principal', tipo: 'Cofre', saldoAtual: 1000.00, ativo: true },
-        { id: 2, nome: 'Banco Itaú', tipo: 'Banco', saldoAtual: 50000.00, ativo: true },
-        { id: 3, nome: 'Banco Inter', tipo: 'Banco', saldoAtual: 1500.00, ativo: true },
+        { id: 2, nome: 'Conta Stone', tipo: 'Banco', saldoAtual: 2500.00, ativo: true }, // Changed from Itau
+        { id: 3, nome: 'Conta Inter', tipo: 'Banco', saldoAtual: 1500.00, ativo: true },
     ];
     
     // Seed initial movements for accounts to match balance
     this.movimentosContas = [
         { id: 1, contaId: 1, data: new Date().toISOString(), tipo: 'Entrada', valor: 1000.00, descricao: 'Saldo Inicial Implantado', saldoApos: 1000.00 },
-        { id: 2, contaId: 2, data: new Date().toISOString(), tipo: 'Entrada', valor: 50000.00, descricao: 'Saldo Inicial Implantado', saldoApos: 50000.00 },
+        { id: 2, contaId: 2, data: new Date().toISOString(), tipo: 'Entrada', valor: 2500.00, descricao: 'Saldo Inicial Implantado', saldoApos: 2500.00 },
         { id: 3, contaId: 3, data: new Date().toISOString(), tipo: 'Entrada', valor: 1500.00, descricao: 'Saldo Inicial Implantado', saldoApos: 1500.00 },
     ];
 
     this.operadoras = [
-        { id: 1, nome: 'Stone', taxaCredito: 3.5, diasRecebimentoCredito: 30, taxaDebito: 1.5, diasRecebimentoDebito: 1, ativo: true },
+        // Linked Stone to Account ID 2 (Conta Stone)
+        { id: 1, nome: 'Stone', taxaCredito: 3.5, diasRecebimentoCredito: 30, taxaDebito: 1.5, diasRecebimentoDebito: 1, contaVinculadaId: 2, ativo: true },
         { id: 2, nome: 'Cielo', taxaCredito: 4.0, diasRecebimentoCredito: 30, taxaDebito: 1.8, diasRecebimentoDebito: 1, ativo: true },
     ];
 
@@ -98,7 +99,7 @@ class MockDB {
         { id: 1, nome: 'Dinheiro', ativo: true, tipoVinculo: 'Nenhum' },
         { id: 2, nome: 'Cartão de Crédito', ativo: true, tipoVinculo: 'Operadora', operadoraId: 1 }, // Linked to Stone
         { id: 3, nome: 'Cartão de Débito', ativo: true, tipoVinculo: 'Operadora', operadoraId: 1 }, // Linked to Stone
-        { id: 4, nome: 'PIX', ativo: true, tipoVinculo: 'Conta', contaDestinoId: 2 }, // Linked to Itau
+        { id: 4, nome: 'PIX', ativo: true, tipoVinculo: 'Conta', contaDestinoId: 2 }, // Linked to Stone (Assuming PIX falls there too)
         { id: 5, nome: 'Voucher / VR', ativo: true, tipoVinculo: 'Nenhum' }
     ];
 
@@ -143,6 +144,24 @@ class MockDB {
   }
 
   getOperadoras() { return this.operadoras; }
+  
+  // New: Get receivables for a specific account for future projection
+  getRecebiveisPorConta(contaId: number, start?: string, end?: string) {
+      let filtered = this.contasReceber.filter(r => r.contaDestinoId === contaId);
+      
+      if (start) {
+          const startDate = new Date(start);
+          startDate.setHours(0,0,0,0);
+          filtered = filtered.filter(r => new Date(r.dataPrevisao) >= startDate);
+      }
+      if (end) {
+          const endDate = new Date(end);
+          endDate.setHours(23,59,59,999);
+          filtered = filtered.filter(r => new Date(r.dataPrevisao) <= endDate);
+      }
+      return filtered.sort((a,b) => new Date(a.dataPrevisao).getTime() - new Date(b.dataPrevisao).getTime());
+  }
+
   getContasReceber() { return this.contasReceber.sort((a,b) => new Date(a.dataPrevisao).getTime() - new Date(b.dataPrevisao).getTime()); }
 
   getPedidoById(id: number) { return this.pedidos.find(p => p.id === id); }
@@ -464,10 +483,6 @@ class MockDB {
       const sessao = this.sessoes[index];
       const saldoSistema = this.getSaldoDinheiroSessao(sessaoId); // Actually checks movements
       
-      // Calculate diff on Total Declared vs System. 
-      // Simplified: We usually check Cash Diff separate from Card Diff. 
-      // But 'quebraDeCaixa' usually refers to Cash.
-      
       const diffDinheiro = audit.dinheiro - saldoSistema;
       
       this.sessoes[index] = {
@@ -478,30 +493,20 @@ class MockDB {
           quebraDeCaixa: diffDinheiro
       };
       
-      // Treasury Integration: Move Money to Safe
-      // Logic: Only the "Profit" goes to safe, "Change Fund" stays? 
-      // Or move EVERYTHING to safe and start next day with withdrawal?
-      // Based on prompt: "opening money was like it didn't exist... only receipts go to safe"
-      // Let's assume we deposit the Audit Cash into the Safe, OR allow manual deposit.
-      // For now, we auto-deposit to "Cofre Principal" (id 1) if exists, as a simplification
-      // Real ERPs ask where to put the money.
+      // Treasury Integration: 
+      // UPDATED LOGIC: ALL MONEY in the drawer goes to the Safe.
+      // e.g. Start 100 + Sale 100 = 200 Total.
+      // If operator returns 200, we deposit 200 to safe.
       
       const cofrePrincipal = this.contasFinanceiras.find(c => c.tipo === 'Cofre');
       if (cofrePrincipal && audit.dinheiro > 0) {
-          // Check if we should deduct start balance? 
-          // Prompt said: "Opening money... available for next cash".
-          // So we deposit (Total - StartBalance) to Safe?
-          
-          const valorParaCofre = Math.max(0, audit.dinheiro - sessao.saldoInicial);
-          
-          if (valorParaCofre > 0) {
-            this.lancarMovimentoConta(
-                cofrePrincipal.id, 
-                'Entrada', 
-                valorParaCofre, 
-                `Sangria de Fechamento - Sessão #${sessao.id}`
-            );
-          }
+          // Deposit the FULL audited amount
+          this.lancarMovimentoConta(
+              cofrePrincipal.id, 
+              'Entrada', 
+              audit.dinheiro, 
+              `Sangria de Fechamento (Total) - Sessão #${sessao.id}`
+          );
       }
   }
 
@@ -575,11 +580,15 @@ class MockDB {
       let taxa = 0;
       let origem = 'Desconhecida';
       let status: 'Pendente' | 'Recebido' = 'Pendente';
+      let contaDestinoId: number | undefined = undefined;
 
       if (formaPagamento.tipoVinculo === 'Operadora' && formaPagamento.operadoraId) {
           const op = this.operadoras.find(o => o.id === formaPagamento.operadoraId);
           if (op) {
               origem = op.nome;
+              // Link Account from Operator if exists
+              contaDestinoId = op.contaVinculadaId;
+
               // Simple check based on name to guess credit/debit
               const isCredit = formaPagamento.nome.toLowerCase().includes('crédito');
               if (isCredit) {
@@ -595,6 +604,7 @@ class MockDB {
           const conta = this.contasFinanceiras.find(c => c.id === formaPagamento.contaDestinoId);
           if (conta) {
               origem = conta.nome;
+              contaDestinoId = conta.id;
               status = 'Recebido'; // PIX is instant usually
               dataPrev = new Date();
               // Auto-credit account logic for PIX
@@ -612,7 +622,8 @@ class MockDB {
           valorLiquido,
           status,
           formaPagamentoNome: formaPagamento.nome,
-          origem
+          origem,
+          contaDestinoId
       };
       
       this.contasReceber.push(recebivel);
@@ -746,8 +757,7 @@ class MockDB {
        
        // Register negative movement in Cash (Estorno)
        // We log it as a Sangria technically or a negative Sale? 
-       // To keep it simple, let's use Sangria with specific observation, or allow negative values in Venda.
-       // Let's use Sangria for now to represent money leaving (returning to customer)
+       // To keep it simple, let's use Sangria for now to represent money leaving (returning to customer)
        
        if (pag.formaPagamentoNome === 'Crédito em Loja') {
             // Refund credit to client

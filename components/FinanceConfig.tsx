@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { ContaFinanceira, OperadoraCartao } from '../types';
@@ -28,7 +29,7 @@ const FinanceConfig: React.FC = () => {
 
   const resetForms = () => {
       setContaForm({id: 0, nome: '', tipo: 'Banco', saldoAtual: 0, ativo: true});
-      setOpForm({id: 0, nome: '', taxaCredito: 0, diasRecebimentoCredito: 30, taxaDebito: 0, diasRecebimentoDebito: 1, ativo: true});
+      setOpForm({id: 0, nome: '', taxaCredito: 0, diasRecebimentoCredito: 30, taxaDebito: 0, diasRecebimentoDebito: 1, ativo: true, contaVinculadaId: undefined});
       setIsEditing(false);
       setEditingId(null);
   };
@@ -173,6 +174,21 @@ const FinanceConfig: React.FC = () => {
                                 <input type="number" required value={opForm.diasRecebimentoDebito} onChange={e => setOpForm({...opForm, diasRecebimentoDebito: parseFloat(e.target.value)})} className="w-full p-2 border border-gray-300 rounded outline-none"/>
                             </div>
                         </div>
+
+                         <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Conta Bancária Vinculada</label>
+                            <select 
+                                value={opForm.contaVinculadaId || ''} 
+                                onChange={e => setOpForm({...opForm, contaVinculadaId: e.target.value ? parseInt(e.target.value) : undefined})} 
+                                className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                            >
+                                <option value="">Nenhuma / Manual</option>
+                                {contas.filter(c => c.tipo === 'Banco').map(c => (
+                                    <option key={c.id} value={c.id}>{c.nome}</option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-400 mt-1">Destino automático dos recebíveis.</p>
+                        </div>
                         
                         <div className="flex gap-2 pt-2">
                              {isEditing && <button type="button" onClick={resetForms} className="flex-1 py-2 bg-gray-200 rounded font-bold text-gray-600">Cancelar</button>}
@@ -183,24 +199,28 @@ const FinanceConfig: React.FC = () => {
 
                 {/* Operator List */}
                 <div className="lg:col-span-2 space-y-4">
-                    {operadoras.map(o => (
-                        <div key={o.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="p-1.5 rounded-lg bg-purple-100 text-purple-600"><CreditCard size={16}/></span>
-                                    <h4 className="font-bold text-gray-800">{o.nome}</h4>
+                    {operadoras.map(o => {
+                        const contaNome = o.contaVinculadaId ? contas.find(c => c.id === o.contaVinculadaId)?.nome : 'Sem vínculo';
+                        return (
+                            <div key={o.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="p-1.5 rounded-lg bg-purple-100 text-purple-600"><CreditCard size={16}/></span>
+                                        <h4 className="font-bold text-gray-800">{o.nome}</h4>
+                                    </div>
+                                    <div className="flex gap-6 mt-2 ml-9 text-xs text-gray-600">
+                                        <div>Crédito: <b>{o.taxaCredito}%</b> (D+{o.diasRecebimentoCredito})</div>
+                                        <div>Débito: <b>{o.taxaDebito}%</b> (D+{o.diasRecebimentoDebito})</div>
+                                    </div>
+                                    <div className="ml-9 text-xs text-blue-600 font-bold mt-1">Conta: {contaNome}</div>
                                 </div>
-                                <div className="flex gap-6 mt-2 ml-9 text-xs text-gray-600">
-                                    <div>Crédito: <b>{o.taxaCredito}%</b> (D+{o.diasRecebimentoCredito})</div>
-                                    <div>Débito: <b>{o.taxaDebito}%</b> (D+{o.diasRecebimentoDebito})</div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => handleEditOp(o)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={18}/></button>
+                                    <button onClick={() => handleDeleteOp(o.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
                                 </div>
                             </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => handleEditOp(o)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={18}/></button>
-                                <button onClick={() => handleDeleteOp(o.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                     {operadoras.length === 0 && <p className="text-gray-400 text-center py-10">Nenhuma operadora cadastrada.</p>}
                 </div>
             </div>
