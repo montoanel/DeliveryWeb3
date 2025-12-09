@@ -153,6 +153,33 @@ export interface ContaReceber {
   contaDestinoId?: number; // Para facilitar filtragem por conta
 }
 
+// --- CONTAS A PAGAR / FORNECEDORES ---
+
+export interface Fornecedor {
+  id: number;
+  nome: string; // Razão Social / Nome Fantasia
+  documento: string; // CNPJ / CPF
+  telefone: string;
+  email?: string;
+  ativo: boolean;
+}
+
+export interface ContaPagar {
+  id: number;
+  fornecedorId: number;
+  fornecedorNome: string; // Denormalized for easy listing
+  descricao: string; // "Compra de Matéria Prima", "Energia", etc.
+  valor: number;
+  dataVencimento: string; // YYYY-MM-DD
+  
+  // Dados de Baixa
+  status: 'Pendente' | 'Pago';
+  dataPagamento?: string;
+  valorPago?: number;
+  contaOrigemId?: number; // De onde saiu o dinheiro (Cofre/Banco)
+  observacoes?: string;
+}
+
 // --------------------------------
 
 export interface PedidoItemAdicional {

@@ -1,10 +1,11 @@
 
 
+
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
   TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento, StatusCozinha, SetorProducao,
-  ContaFinanceira, OperadoraCartao, ContaReceber, MovimentoConta
+  ContaFinanceira, OperadoraCartao, ContaReceber, MovimentoConta, Fornecedor, ContaPagar
 } from '../types';
 
 class MockDB {
@@ -25,6 +26,8 @@ class MockDB {
   private movimentosContas: MovimentoConta[] = []; // Store account history
   private operadoras: OperadoraCartao[] = [];
   private contasReceber: ContaReceber[] = [];
+  private fornecedores: Fornecedor[] = [];
+  private contasPagar: ContaPagar[] = [];
 
   constructor() {
     this.seed();
@@ -112,6 +115,18 @@ class MockDB {
         { id: 4, nome: 'Industrial', taxaEntrega: 10.00, ativo: true },
     ];
     this.clientes = [{id: 1, nome: 'Cliente Padrão', tipoPessoa: 'Física', cpfCnpj: '000.000.000-00', telefone: '', nomeWhatsapp: '', endereco: '', numero: '', complemento: '', bairro: 'Centro', bairroId: 1, saldoCredito: 0 }];
+
+    // SEED SUPPLIERS & BILLS
+    this.fornecedores = [
+        { id: 1, nome: 'Atacadão das Bebidas', documento: '12.345.678/0001-90', telefone: '(11) 9999-9999', ativo: true },
+        { id: 2, nome: 'Fornecedor de Embalagens', documento: '98.765.432/0001-10', telefone: '(11) 8888-8888', ativo: true },
+        { id: 3, nome: 'Companhia de Energia', documento: '00.000.000/0001-00', telefone: '0800', ativo: true },
+    ];
+
+    this.contasPagar = [
+        { id: 1, fornecedorId: 3, fornecedorNome: 'Companhia de Energia', descricao: 'Conta de Luz - Dezembro', valor: 350.50, dataVencimento: new Date().toISOString().split('T')[0], status: 'Pendente' },
+        { id: 2, fornecedorId: 1, fornecedorNome: 'Atacadão das Bebidas', descricao: 'Reposição Refrigerantes', valor: 1200.00, dataVencimento: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], status: 'Pendente' }, // 5 days ahead
+    ];
   }
 
   // --- GETTERS ---
@@ -162,6 +177,9 @@ class MockDB {
   }
 
   getContasReceber() { return this.contasReceber.sort((a,b) => new Date(a.dataPrevisao).getTime() - new Date(b.dataPrevisao).getTime()); }
+
+  getFornecedores() { return this.fornecedores; }
+  getContasPagar() { return this.contasPagar.sort((a,b) => new Date(a.dataVencimento).getTime() - new Date(b.dataVencimento).getTime()); }
 
   getPedidoById(id: number) { return this.pedidos.find(p => p.id === id); }
 
@@ -400,6 +418,63 @@ class MockDB {
       }
   }
   deleteBairro(id: number) { this.bairros = this.bairros.filter(p => p.id !== id); }
+
+  // SUPPLIERS & BILLS
+  saveFornecedor(item: Fornecedor) {
+      if (item.id === 0) {
+          item.id = Math.max(0, ...this.fornecedores.map(f => f.id)) + 1;
+          this.fornecedores.push(item);
+      } else {
+          const index = this.fornecedores.findIndex(f => f.id === item.id);
+          if (index >= 0) this.fornecedores[index] = item;
+      }
+  }
+  deleteFornecedor(id: number) { this.fornecedores = this.fornecedores.filter(f => f.id !== id); }
+
+  saveContaPagar(item: ContaPagar) {
+      if (item.id === 0) {
+          item.id = Math.max(0, ...this.contasPagar.map(c => c.id)) + 1;
+          // Fill denormalized name
+          const supplier = this.fornecedores.find(f => f.id === item.fornecedorId);
+          item.fornecedorNome = supplier ? supplier.nome : 'Desconhecido';
+          this.contasPagar.push(item);
+      } else {
+          const index = this.contasPagar.findIndex(c => c.id === item.id);
+          if (index >= 0) {
+              const supplier = this.fornecedores.find(f => f.id === item.fornecedorId);
+              item.fornecedorNome = supplier ? supplier.nome : 'Desconhecido';
+              this.contasPagar[index] = item;
+          }
+      }
+  }
+  
+  deleteContaPagar(id: number) { this.contasPagar = this.contasPagar.filter(c => c.id !== id); }
+
+  pagarConta(contaId: number, contaFinanceiraId: number, dataPagamento: string, observacoes?: string) {
+      const index = this.contasPagar.findIndex(c => c.id === contaId);
+      if (index === -1) throw new Error("Conta a pagar não encontrada.");
+      
+      const conta = this.contasPagar[index];
+      if (conta.status === 'Pago') throw new Error("Esta conta já está paga.");
+
+      // Check balance and debit
+      this.lancarMovimentoConta(
+          contaFinanceiraId, 
+          'Saída', 
+          conta.valor, 
+          `Pagto. Fornecedor: ${conta.fornecedorNome} - ${conta.descricao}`
+      );
+
+      // Update Bill Status
+      this.contasPagar[index] = {
+          ...conta,
+          status: 'Pago',
+          dataPagamento: dataPagamento,
+          valorPago: conta.valor,
+          contaOrigemId: contaFinanceiraId,
+          observacoes: observacoes
+      };
+  }
 
   savePedido(pedido: Pedido) {
       const totalPaid = pedido.pagamentos?.reduce((acc, p) => acc + p.valor, 0) || 0;

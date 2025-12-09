@@ -1,7 +1,8 @@
 
+
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
 import CashControl from './components/CashControl';
@@ -17,6 +18,8 @@ import Login from './components/Login';
 import Kitchen from './components/Kitchen';
 import Treasury from './components/Treasury';
 import FinanceConfig from './components/FinanceConfig';
+import Suppliers from './components/Suppliers';
+import BillsToPay from './components/BillsToPay';
 import { Usuario } from './types';
 
 const SidebarLink = ({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) => {
@@ -65,7 +68,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
           <SidebarLink to="/vendas" icon={ShoppingCart} label={sidebarOpen ? "PDV / Vendas" : ""} />
           <SidebarLink to="/caixa" icon={DollarSign} label={sidebarOpen ? "Gestão de Caixa" : ""} />
           <SidebarLink to="/cozinha" icon={ChefHat} label={sidebarOpen ? "KDS / Cozinha" : ""} />
-          <SidebarLink to="/tesouraria" icon={Landmark} label={sidebarOpen ? "Tesouraria (Novo)" : ""} />
+          
+          <div className="pt-4 mt-4 border-t border-gray-100">
+             {sidebarOpen && <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Financeiro</h3>}
+             <SidebarLink to="/tesouraria" icon={Landmark} label={sidebarOpen ? "Tesouraria" : ""} />
+             <SidebarLink to="/contas-pagar" icon={FileText} label={sidebarOpen ? "Contas a Pagar" : ""} />
+             <SidebarLink to="/fornecedores" icon={Truck} label={sidebarOpen ? "Fornecedores" : ""} />
+          </div>
           
           {/* Cadastros Section */}
           <div className="pt-4 mt-4 border-t border-gray-100">
@@ -144,6 +153,8 @@ const App: React.FC = () => {
           <Route path="/caixa" element={<CashControl user={user} />} />
           <Route path="/cozinha" element={<Kitchen />} />
           <Route path="/tesouraria" element={<Treasury />} />
+          <Route path="/contas-pagar" element={<BillsToPay />} />
+          <Route path="/fornecedores" element={<Suppliers />} />
           
           <Route path="/produtos" element={<Products />} />
           <Route path="/grupos" element={<ProductGroups />} />
