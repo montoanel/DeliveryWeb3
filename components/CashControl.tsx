@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { db } from '../services/mockDb';
@@ -238,6 +239,7 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
   const [caixas, setCaixas] = useState<Caixa[]>([]);
   const [selectedCaixaId, setSelectedCaixaId] = useState<number | ''>('');
   const [initialBalance, setInitialBalance] = useState('0.00');
+  const [startSourceId, setStartSourceId] = useState<number | ''>(''); // New: Source of Opening Balance
 
   // Operation Modal (Reforco/Sangria)
   const [modalType, setModalType] = useState<TipoOperacaoCaixa | null>(null);
@@ -289,7 +291,8 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
     e.preventDefault();
     if (!selectedCaixaId) { alert("Selecione um caixa."); return; }
     try {
-      const newSession = db.abrirSessao(user.id, Number(selectedCaixaId), parseFloat(initialBalance));
+      // Pass the source ID to debit from safe if selected
+      const newSession = db.abrirSessao(user.id, Number(selectedCaixaId), parseFloat(initialBalance), startSourceId ? Number(startSourceId) : undefined);
       setPrintData({ type: 'OPENING', format: 'TICKET', session: newSession });
       loadData();
     } catch (e: any) { alert(e.message); }
@@ -400,8 +403,18 @@ const OperatorView: React.FC<{ user: Usuario }> = ({ user }) => {
                         <span className="absolute left-3 top-3 text-gray-500 font-bold">R$</span>
                         <input type="number" step="0.01" value={initialBalance} onChange={(e) => setInitialBalance(e.target.value)} className="w-full pl-10 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-bold"/>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Geralmente é a sobra do caixa anterior.</p>
                 </div>
+                <div>
+                     <label className="block text-sm font-bold text-gray-700 mb-1">Origem do Dinheiro</label>
+                     <select value={startSourceId} onChange={(e) => setStartSourceId(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="">Nenhuma (Sobra do Caixa Anterior)</option>
+                        {contasFinanceiras.filter(c => c.tipo === 'Cofre').map(c => (
+                            <option key={c.id} value={c.id}>{c.nome} (Saldo: R$ {c.saldoAtual.toFixed(2)})</option>
+                        ))}
+                     </select>
+                     <p className="text-xs text-gray-500 mt-1">Se selecionar um cofre, o valor será debitado dele.</p>
+                </div>
+
                 <button type="submit" className="w-full py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"><Unlock size={20} /> Abrir Caixa</button>
             </form>
             </div>

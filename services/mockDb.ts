@@ -1,9 +1,10 @@
 
+
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
   TipoOperacaoCaixa, StatusSessao, PedidoStatus, Pagamento, PedidoItemAdicional, Bairro, ConferenciaFechamento, StatusCozinha, SetorProducao,
-  ContaFinanceira, OperadoraCartao, ContaReceber
+  ContaFinanceira, OperadoraCartao, ContaReceber, MovimentoConta
 } from '../types';
 
 class MockDB {
@@ -21,6 +22,7 @@ class MockDB {
   
   // Financeiro
   private contasFinanceiras: ContaFinanceira[] = [];
+  private movimentosContas: MovimentoConta[] = []; // Store account history
   private operadoras: OperadoraCartao[] = [];
   private contasReceber: ContaReceber[] = [];
 
@@ -75,9 +77,16 @@ class MockDB {
 
     // FINANCE SEED
     this.contasFinanceiras = [
-        { id: 1, nome: 'Cofre Principal', tipo: 'Cofre', saldoAtual: 2000.00, ativo: true },
+        { id: 1, nome: 'Cofre Principal', tipo: 'Cofre', saldoAtual: 1000.00, ativo: true },
         { id: 2, nome: 'Banco Itaú', tipo: 'Banco', saldoAtual: 50000.00, ativo: true },
         { id: 3, nome: 'Banco Inter', tipo: 'Banco', saldoAtual: 1500.00, ativo: true },
+    ];
+    
+    // Seed initial movements for accounts to match balance
+    this.movimentosContas = [
+        { id: 1, contaId: 1, data: new Date().toISOString(), tipo: 'Entrada', valor: 1000.00, descricao: 'Saldo Inicial Implantado', saldoApos: 1000.00 },
+        { id: 2, contaId: 2, data: new Date().toISOString(), tipo: 'Entrada', valor: 50000.00, descricao: 'Saldo Inicial Implantado', saldoApos: 50000.00 },
+        { id: 3, contaId: 3, data: new Date().toISOString(), tipo: 'Entrada', valor: 1500.00, descricao: 'Saldo Inicial Implantado', saldoApos: 1500.00 },
     ];
 
     this.operadoras = [
@@ -116,6 +125,23 @@ class MockDB {
   getBairros() { return this.bairros; }
   
   getContasFinanceiras() { return this.contasFinanceiras; }
+  
+  getMovimentosConta(contaId: number, start?: string, end?: string) {
+      let filtered = this.movimentosContas.filter(m => m.contaId === contaId);
+      if (start) {
+          const startDate = new Date(start);
+          startDate.setHours(0,0,0,0);
+          filtered = filtered.filter(m => new Date(m.data) >= startDate);
+      }
+      if (end) {
+          const endDate = new Date(end);
+          endDate.setHours(23,59,59,999);
+          filtered = filtered.filter(m => new Date(m.data) <= endDate);
+      }
+      // Sort desc
+      return filtered.sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+  }
+
   getOperadoras() { return this.operadoras; }
   getContasReceber() { return this.contasReceber.sort((a,b) => new Date(a.dataPrevisao).getTime() - new Date(b.dataPrevisao).getTime()); }
 
@@ -225,9 +251,18 @@ class MockDB {
       if(item.id === 0) {
           item.id = Math.max(0, ...this.contasFinanceiras.map(p => p.id)) + 1;
           this.contasFinanceiras.push(item);
+          // Initial balance movement
+          if (item.saldoAtual > 0) {
+              this.lancarMovimentoConta(item.id, 'Entrada', item.saldoAtual, 'Saldo Inicial Implantado');
+          }
       } else {
           const index = this.contasFinanceiras.findIndex(p => p.id === item.id);
-          if(index >= 0) this.contasFinanceiras[index] = item;
+          if(index >= 0) {
+              // Update only name/type, balance is controlled by movements
+              this.contasFinanceiras[index].nome = item.nome;
+              this.contasFinanceiras[index].tipo = item.tipo;
+              this.contasFinanceiras[index].ativo = item.ativo;
+          }
       }
   }
   deleteContaFinanceira(id: number) { this.contasFinanceiras = this.contasFinanceiras.filter(p => p.id !== id); }
@@ -358,129 +393,133 @@ class MockDB {
   }
 
   getSessoesFechadas() {
-      return this.sessoes.filter(s => s.status === StatusSessao.Fechada).sort((a,b) => new Date(b.dataFechamento!).getTime() - new Date(a.dataFechamento!).getTime());
-  }
-
-  getSessoesConsolidadas(start?: string, end?: string) {
-      let query = this.sessoes.filter(s => s.status === StatusSessao.Consolidada);
-      
-      if (start) {
-          const startDate = new Date(start);
-          startDate.setHours(0,0,0,0);
-          query = query.filter(s => new Date(s.dataAbertura) >= startDate);
-      }
-      
-      if (end) {
-          const endDate = new Date(end);
-          endDate.setHours(23,59,59,999);
-          query = query.filter(s => new Date(s.dataAbertura) <= endDate);
-      }
-
-      return query.sort((a,b) => new Date(b.dataConsolidacao || b.dataAbertura).getTime() - new Date(a.dataConsolidacao || a.dataAbertura).getTime());
-  }
-
-  getSaldoSessao(sessaoId: number): number {
-    return this.caixaMovimentos
-      .filter(m => m.sessaoId === sessaoId)
-      .reduce((acc, mov) => {
-        if (mov.tipoOperacao === TipoOperacaoCaixa.Sangria || mov.tipoOperacao === TipoOperacaoCaixa.Fechamento || mov.tipoOperacao === TipoOperacaoCaixa.Troco) {
-          return acc - mov.valor;
-        }
-        if (mov.tipoOperacao === TipoOperacaoCaixa.UsoCredito) {
-            return acc;
-        }
-        return acc + mov.valor;
-      }, 0);
+      return this.sessoes.filter(s => s.status === StatusSessao.Fechada);
   }
   
-  abrirSessao(userId: number, caixaId: number, saldoInicial: number) {
-      if(this.getSessaoAberta(userId)) throw new Error("Usuário já possui sessão aberta.");
+  getSessoesConsolidadas() {
+      return this.sessoes.filter(s => s.status === StatusSessao.Consolidada).sort((a,b) => new Date(b.dataConsolidacao!).getTime() - new Date(a.dataConsolidacao!).getTime());
+  }
+
+  abrirSessao(userId: number, caixaId: number, saldoInicial: number, contaOrigemId?: number) {
+      if (this.getSessaoAberta(userId)) {
+          throw new Error("Você já possui um caixa aberto.");
+      }
       
-      const caixa = this.caixas.find(c => c.id === caixaId);
-      const usuario = this.usuarios.find(u => u.id === userId);
-      
-      const novaSessao: SessaoCaixa = {
+      // Treasury Logic: Debit from Source Account
+      if (contaOrigemId && saldoInicial > 0) {
+          this.lancarMovimentoConta(
+              contaOrigemId, 
+              'Saída', 
+              saldoInicial, 
+              `Abertura de Caixa #${caixaId} - Usuário ${userId}`
+          );
+      }
+
+      const user = this.usuarios.find(u => u.id === userId)!;
+      const caixa = this.caixas.find(c => c.id === caixaId)!;
+
+      const newSession: SessaoCaixa = {
           id: Math.max(0, ...this.sessoes.map(s => s.id)) + 1,
           caixaId,
-          caixaNome: caixa?.nome || 'Caixa',
+          caixaNome: caixa.nome,
           usuarioId: userId,
-          usuarioNome: usuario?.nome || 'User',
+          usuarioNome: user.nome,
           dataAbertura: new Date().toISOString(),
           saldoInicial,
+          contaOrigemId, // Track source
           status: StatusSessao.Aberta
       };
-      
-      this.sessoes.push(novaSessao);
-      
-      // We assume opening balance is physically there or Reforco is done later.
-      // But for logical balance, we add it.
-      this.lancarMovimento(novaSessao.id, TipoOperacaoCaixa.Abertura, saldoInicial, 'Abertura de Caixa');
-      
-      return novaSessao;
+
+      this.sessoes.push(newSession);
+      this.lancarMovimento(newSession.id, TipoOperacaoCaixa.Abertura, saldoInicial, 'Fundo de Troco', 1);
+
+      return newSession;
   }
-  
+
   fecharSessao(sessaoId: number, conferencia: ConferenciaFechamento) {
-      const sessaoIndex = this.sessoes.findIndex(s => s.id === sessaoId);
-      if(sessaoIndex < 0) throw new Error("Sessão não encontrada");
+      const index = this.sessoes.findIndex(s => s.id === sessaoId);
+      if (index === -1) throw new Error("Sessão não encontrada");
+
+      const sessao = this.sessoes[index];
       
-      const sessao = this.sessoes[sessaoIndex];
-      const saldoFinalCalculado = this.getSaldoSessao(sessaoId);
-      const totalContado = conferencia.dinheiro + conferencia.cartaoCredito + conferencia.cartaoDebito + conferencia.pix + conferencia.voucher + conferencia.outros;
+      // Calculate System Balance
+      const saldoDinheiro = this.getSaldoDinheiroSessao(sessaoId);
+      const saldoFinalSistema = saldoDinheiro; // Cash is what matters for physical count
       
-      this.sessoes[sessaoIndex] = {
+      this.sessoes[index] = {
           ...sessao,
-          status: StatusSessao.Fechada, 
+          status: StatusSessao.Fechada,
           dataFechamento: new Date().toISOString(),
-          saldoFinalSistema: saldoFinalCalculado,
-          saldoFinalInformado: totalContado, 
-          conferenciaOperador: conferencia,
-          quebraDeCaixa: totalContado - saldoFinalCalculado
+          saldoFinalSistema,
+          conferenciaOperador: conferencia
       };
       
-      this.lancarMovimento(sessaoId, TipoOperacaoCaixa.Fechamento, saldoFinalCalculado, 'Fechamento de Caixa');
+      this.lancarMovimento(sessaoId, TipoOperacaoCaixa.Fechamento, saldoDinheiro, 'Fechamento de Caixa');
   }
 
-  consolidarSessao(sessaoId: number, conferenciaAuditada: ConferenciaFechamento) {
-      const sessaoIndex = this.sessoes.findIndex(s => s.id === sessaoId);
-      if(sessaoIndex < 0) throw new Error("Sessão não encontrada");
+  consolidarSessao(sessaoId: number, audit: ConferenciaFechamento) {
+     const index = this.sessoes.findIndex(s => s.id === sessaoId);
+      if (index === -1) throw new Error("Sessão não encontrada");
       
-      const sessao = this.sessoes[sessaoIndex];
-      if (sessao.status !== StatusSessao.Fechada) {
-          throw new Error("Sessão não está pronta para consolidação ou já foi consolidada.");
-      }
-
-      const totalAuditado = conferenciaAuditada.dinheiro + conferenciaAuditada.cartaoCredito + conferenciaAuditada.cartaoDebito + conferenciaAuditada.pix + conferenciaAuditada.voucher + conferenciaAuditada.outros;
-      const diff = totalAuditado - (sessao.saldoFinalSistema || 0);
-
-      this.sessoes[sessaoIndex] = {
+      const sessao = this.sessoes[index];
+      const saldoSistema = this.getSaldoDinheiroSessao(sessaoId); // Actually checks movements
+      
+      // Calculate diff on Total Declared vs System. 
+      // Simplified: We usually check Cash Diff separate from Card Diff. 
+      // But 'quebraDeCaixa' usually refers to Cash.
+      
+      const diffDinheiro = audit.dinheiro - saldoSistema;
+      
+      this.sessoes[index] = {
           ...sessao,
           status: StatusSessao.Consolidada,
           dataConsolidacao: new Date().toISOString(),
-          conferenciaAuditoria: conferenciaAuditada,
-          quebraDeCaixa: diff
+          conferenciaAuditoria: audit,
+          quebraDeCaixa: diffDinheiro
       };
+      
+      // Treasury Integration: Move Money to Safe
+      // Logic: Only the "Profit" goes to safe, "Change Fund" stays? 
+      // Or move EVERYTHING to safe and start next day with withdrawal?
+      // Based on prompt: "opening money was like it didn't exist... only receipts go to safe"
+      // Let's assume we deposit the Audit Cash into the Safe, OR allow manual deposit.
+      // For now, we auto-deposit to "Cofre Principal" (id 1) if exists, as a simplification
+      // Real ERPs ask where to put the money.
+      
+      const cofrePrincipal = this.contasFinanceiras.find(c => c.tipo === 'Cofre');
+      if (cofrePrincipal && audit.dinheiro > 0) {
+          // Check if we should deduct start balance? 
+          // Prompt said: "Opening money... available for next cash".
+          // So we deposit (Total - StartBalance) to Safe?
+          
+          const valorParaCofre = Math.max(0, audit.dinheiro - sessao.saldoInicial);
+          
+          if (valorParaCofre > 0) {
+            this.lancarMovimentoConta(
+                cofrePrincipal.id, 
+                'Entrada', 
+                valorParaCofre, 
+                `Sangria de Fechamento - Sessão #${sessao.id}`
+            );
+          }
+      }
   }
-  
-  lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string, formaPagamentoId?: number, contaOrigemId?: number, contaDestinoId?: number) {
-      
-      // Treasury Logic for Transfers
-      if (tipo === TipoOperacaoCaixa.Reforco && contaOrigemId) {
-          const conta = this.contasFinanceiras.find(c => c.id === contaOrigemId);
-          if (conta) {
-              if (conta.saldoAtual < valor) throw new Error(`Saldo insuficiente no ${conta.nome} para realizar este reforço.`);
-              conta.saldoAtual -= valor;
-              obs += ` (Origem: ${conta.nome})`;
-          }
-      }
-      
-      if (tipo === TipoOperacaoCaixa.Sangria && contaDestinoId) {
-          const conta = this.contasFinanceiras.find(c => c.id === contaDestinoId);
-          if (conta) {
-              conta.saldoAtual += valor;
-              obs += ` (Destino: ${conta.nome})`;
-          }
-      }
 
+  getSaldoSessao(sessaoId: number) {
+      return this.caixaMovimentos
+        .filter(m => m.sessaoId === sessaoId)
+        .reduce((acc, m) => {
+            if (m.tipoOperacao === TipoOperacaoCaixa.Sangria || m.tipoOperacao === TipoOperacaoCaixa.Troco) return acc - m.valor;
+            if (m.tipoOperacao === TipoOperacaoCaixa.Vendas || m.tipoOperacao === TipoOperacaoCaixa.Abertura || m.tipoOperacao === TipoOperacaoCaixa.Reforco || m.tipoOperacao === TipoOperacaoCaixa.CreditoCliente) return acc + m.valor;
+            return acc;
+        }, 0);
+  }
+
+  getCaixaMovimentos(sessaoId: number) {
+      return this.caixaMovimentos.filter(m => m.sessaoId === sessaoId).sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+  }
+
+  lancarMovimento(sessaoId: number, tipo: TipoOperacaoCaixa, valor: number, obs: string, formaPagamentoId?: number, contaOrigemId?: number, contaDestinoId?: number) {
       const mov: CaixaMovimento = {
           id: Math.max(0, ...this.caixaMovimentos.map(m => m.id)) + 1,
           sessaoId,
@@ -488,201 +527,237 @@ class MockDB {
           tipoOperacao: tipo,
           valor,
           observacao: obs,
-          formaPagamentoId,
+          formaPagamentoId: formaPagamentoId || 1, // Default Money
           contaOrigemId,
           contaDestinoId
       };
       this.caixaMovimentos.push(mov);
+
+      // --- TREASURY INTEGRATION ---
+      if (tipo === TipoOperacaoCaixa.Reforco && contaOrigemId) {
+          this.lancarMovimentoConta(contaOrigemId, 'Saída', valor, `Reforço para Caixa (Sessão #${sessaoId})`);
+      }
+      if (tipo === TipoOperacaoCaixa.Sangria && contaDestinoId) {
+          this.lancarMovimentoConta(contaDestinoId, 'Entrada', valor, `Sangria de Caixa (Sessão #${sessaoId})`);
+      }
+  }
+
+  // --- TREASURY METHODS ---
+
+  lancarMovimentoConta(contaId: number, tipo: 'Entrada' | 'Saída', valor: number, descricao: string) {
+      const conta = this.contasFinanceiras.find(c => c.id === contaId);
+      if (!conta) throw new Error("Conta financeira não encontrada.");
+
+      if (tipo === 'Saída' && conta.saldoAtual < valor) {
+          throw new Error(`Saldo insuficiente na conta ${conta.nome}. Atual: R$ ${conta.saldoAtual.toFixed(2)}`);
+      }
+
+      // Update Balance
+      if (tipo === 'Entrada') conta.saldoAtual += valor;
+      else conta.saldoAtual -= valor;
+
+      // Log Movement
+      const mov: MovimentoConta = {
+          id: Math.max(0, ...this.movimentosContas.map(m => m.id)) + 1,
+          contaId,
+          data: new Date().toISOString(),
+          tipo,
+          valor,
+          descricao,
+          saldoApos: conta.saldoAtual
+      };
+      this.movimentosContas.push(mov);
+  }
+
+  agendarRecebivel(pedidoId: number, valorBruto: number, formaPagamento: FormaPagamento, dataVenda: string) {
+      let valorLiquido = valorBruto;
+      let dataPrev = new Date();
+      let taxa = 0;
+      let origem = 'Desconhecida';
+      let status: 'Pendente' | 'Recebido' = 'Pendente';
+
+      if (formaPagamento.tipoVinculo === 'Operadora' && formaPagamento.operadoraId) {
+          const op = this.operadoras.find(o => o.id === formaPagamento.operadoraId);
+          if (op) {
+              origem = op.nome;
+              // Simple check based on name to guess credit/debit
+              const isCredit = formaPagamento.nome.toLowerCase().includes('crédito');
+              if (isCredit) {
+                  taxa = (valorBruto * op.taxaCredito) / 100;
+                  dataPrev.setDate(dataPrev.getDate() + op.diasRecebimentoCredito);
+              } else {
+                  taxa = (valorBruto * op.taxaDebito) / 100;
+                  dataPrev.setDate(dataPrev.getDate() + op.diasRecebimentoDebito);
+              }
+              valorLiquido = valorBruto - taxa;
+          }
+      } else if (formaPagamento.tipoVinculo === 'Conta' && formaPagamento.contaDestinoId) {
+          const conta = this.contasFinanceiras.find(c => c.id === formaPagamento.contaDestinoId);
+          if (conta) {
+              origem = conta.nome;
+              status = 'Recebido'; // PIX is instant usually
+              dataPrev = new Date();
+              // Auto-credit account logic for PIX
+              this.lancarMovimentoConta(conta.id, 'Entrada', valorLiquido, `Recebimento PIX Pedido #${pedidoId}`);
+          }
+      }
+
+      const recebivel: ContaReceber = {
+          id: Math.random().toString(36).substr(2, 9),
+          pedidoId,
+          dataVenda,
+          dataPrevisao: dataPrev.toISOString(),
+          valorBruto,
+          taxaAplicada: taxa,
+          valorLiquido,
+          status,
+          formaPagamentoNome: formaPagamento.nome,
+          origem
+      };
+      
+      this.contasReceber.push(recebivel);
   }
   
-  getCaixaMovimentos(sessaoId: number) {
-      return this.caixaMovimentos.filter(m => m.sessaoId === sessaoId).sort((a,b) => new Date(b.data).getTime() - new Date(a.data).getTime());
-  }
-
-  // --- PAYMENT PROCESSING ---
-  addPagamento(orderId: number, payment: Pagamento, userId: number, valorTroco: number = 0, valorBruto: number = 0) {
-      const sessao = this.getSessaoAberta(userId);
-      if(!sessao) throw new Error("Caixa Fechado. Abra o caixa para receber.");
+  // Update Payment logic to trigger Receivables
+  addPagamento(pedidoId: number, pagamento: Pagamento, usuarioId: number, change: number, bruteValue: number) {
+      const sessao = this.getSessaoAberta(usuarioId);
+      if (!sessao) throw new Error("Caixa Fechado. Abra o caixa para vender.");
       
-      const pedido = this.getPedidoById(orderId);
-      if(!pedido) throw new Error("Pedido não encontrado");
+      // 1. Add movement to Cash
+      const forma = this.formasPagamento.find(f => f.id === pagamento.formaPagamentoId);
+      if(!forma) throw new Error("Forma de pagamento inválida");
 
-      const dinheiroId = 1;
-      const isDinheiro = payment.formaPagamentoId === dinheiroId;
-      
-      if (isDinheiro && valorTroco > 0) {
-          const saldoDinheiro = this.getSaldoDinheiroSessao(sessao.id);
-          if (saldoDinheiro < valorTroco) {
-              throw new Error("ERR_SALDO_INSUFICIENTE: Não há dinheiro suficiente em caixa para este troco.");
-          }
+      // Register payment (Entry)
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, pagamento.valor, `Venda #${pedidoId}`, forma.id);
+
+      // Register change (Exit) if any
+      if (change > 0) {
+           this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Troco, change, `Troco Venda #${pedidoId}`, 1);
       }
       
-      pedido.pagamentos.push(payment);
-      
-      const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
-      if (totalPaid >= (pedido.total - 0.01)) {
-          pedido.status = PedidoStatus.Pago;
-      }
-      
-      // --- TREASURY LOGIC: CREATE RECEIVABLES ---
-      const formaPgto = this.formasPagamento.find(f => f.id === payment.formaPagamentoId);
-      
-      if (formaPgto) {
-          // If Linked to Operator (Credit/Debit Card)
-          if (formaPgto.tipoVinculo === 'Operadora' && formaPgto.operadoraId) {
-              const operadora = this.operadoras.find(op => op.id === formaPgto.operadoraId);
-              if (operadora) {
-                  const isDebit = formaPgto.nome.toLowerCase().includes('débito') || formaPgto.nome.toLowerCase().includes('debito');
-                  const taxa = isDebit ? operadora.taxaDebito : operadora.taxaCredito;
-                  const dias = isDebit ? operadora.diasRecebimentoDebito : operadora.diasRecebimentoCredito;
-                  
-                  const valorTaxa = (payment.valor * taxa) / 100;
-                  const valorLiquido = payment.valor - valorTaxa;
-                  
-                  const dataPrevisao = new Date();
-                  dataPrevisao.setDate(dataPrevisao.getDate() + dias);
-
-                  const receivable: ContaReceber = {
-                      id: Math.random().toString(36).substr(2, 9),
-                      pedidoId: pedido.id,
-                      dataVenda: new Date().toISOString(),
-                      dataPrevisao: dataPrevisao.toISOString(),
-                      valorBruto: payment.valor,
-                      taxaAplicada: taxa,
-                      valorLiquido: valorLiquido,
-                      status: 'Pendente',
-                      formaPagamentoNome: formaPgto.nome,
-                      origem: operadora.nome
-                  };
-                  this.contasReceber.push(receivable);
-              }
-          } 
-          // If Linked to Bank Account directly (PIX)
-          else if (formaPgto.tipoVinculo === 'Conta' && formaPgto.contaDestinoId) {
-              const conta = this.contasFinanceiras.find(c => c.id === formaPgto.contaDestinoId);
-              if (conta) {
-                  // For PIX, usually D+0. We create a Receivable marked as 'Pendente' (for conciliation) or 'Recebido'
-                  // User asked for "Check to see if everything is debiting correctly". So let's create a Receivable D+0
-                  const receivable: ContaReceber = {
-                      id: Math.random().toString(36).substr(2, 9),
-                      pedidoId: pedido.id,
-                      dataVenda: new Date().toISOString(),
-                      dataPrevisao: new Date().toISOString(), // Today
-                      valorBruto: payment.valor,
-                      taxaAplicada: 0, // Usually 0 or small fee, for now 0
-                      valorLiquido: payment.valor,
-                      status: 'Pendente', // Needs conciliation
-                      formaPagamentoNome: formaPgto.nome,
-                      origem: conta.nome
-                  };
-                  this.contasReceber.push(receivable);
-                  
-                  // Optional: Automatically increment bank balance?
-                  // conta.saldoAtual += payment.valor; 
-                  // Better to let user "Conciliate" in treasury screen to confirm receipt.
-              }
+      // 2. Add Payment to Order
+      const pedido = this.getPedidoById(pedidoId);
+      if(pedido) {
+          if (!pedido.pagamentos) pedido.pagamentos = [];
+          pedido.pagamentos.push(pagamento);
+          this.savePedido(pedido);
+          
+          // 3. Treasury Schedule
+          if (forma.tipoVinculo !== 'Nenhum') {
+              this.agendarRecebivel(pedidoId, pagamento.valor, forma, new Date().toISOString());
           }
-      }
-
-      // Register Movement
-      if (isDinheiro && valorBruto > 0) {
-          this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, valorBruto, `Pedido #${orderId} - Dinheiro (Recebido)`, payment.formaPagamentoId);
-          if (valorTroco > 0) {
-              this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Troco, valorTroco, `Pedido #${orderId} - Troco`, payment.formaPagamentoId);
-          }
-      } else {
-          this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
       }
   }
 
-  converterTrocoEmCredito(orderId: number, payment: Pagamento, valorTroco: number, userId: number, valorBruto: number) {
-      const sessao = this.getSessaoAberta(userId);
-      if(!sessao) throw new Error("Caixa Fechado.");
-      
-      const pedido = this.getPedidoById(orderId);
-      if(!pedido) throw new Error("Pedido não encontrado");
-      if(!pedido.clienteId) throw new Error("Pedido sem cliente vinculado.");
-      
-      const cliente = this.clientes.find(c => c.id === pedido.clienteId);
-      if(!cliente) throw new Error("Cliente não encontrado.");
-
-      if (cliente.id === 1 || !cliente.cpfCnpj || cliente.cpfCnpj === '000.000.000-00') {
-          throw new Error("Não é permitido gerar crédito para Cliente Padrão/Consumidor Final.");
-      }
-
-      pedido.pagamentos.push(payment);
-      
-      const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
-      if (totalPaid >= (pedido.total - 0.01)) {
-          pedido.status = PedidoStatus.Pago;
-      }
-
-      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, payment.valor, `Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
-      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.CreditoCliente, valorTroco, `Crédito Gerado - Cliente #${cliente.id}`, payment.formaPagamentoId);
-
-      cliente.saldoCredito = (cliente.saldoCredito || 0) + valorTroco;
+  converterTrocoEmCredito(pedidoId: number, pagamento: Pagamento, troco: number, usuarioId: number, bruteValue: number) {
+        const sessao = this.getSessaoAberta(usuarioId);
+        if (!sessao) throw new Error("Caixa Fechado.");
+        
+        // 1. Register full payment entry
+        const forma = this.formasPagamento.find(f => f.id === pagamento.formaPagamentoId);
+        if(!forma) throw new Error("Forma inválida");
+        
+        // Entry of the bill given (e.g., gave 100 bill for 90 purchase)
+        // Actually, logic is: Sale Value = 90. Payment registered = 90. 
+        // But physically we got 100.
+        // If we convert change to credit, we actually KEEP the extra money in cash?
+        // No, 'Troco em Crédito' means we DON'T give money back. 
+        // So we registered 90 sale. The user gave 100. The 10 extra stays in house.
+        // We create a Credit for client of 10.
+        // Effectively, we received 100. 90 paid the order. 10 paid the credit top-up.
+        
+        // Register Sale (90)
+        this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Vendas, pagamento.valor, `Venda #${pedidoId}`, forma.id);
+        
+        // Register Credit TopUp (10)
+        this.lancarMovimento(sessao.id, TipoOperacaoCaixa.CreditoCliente, troco, `Troco em Crédito #${pedidoId}`, forma.id);
+        
+        // Update Order
+        const pedido = this.getPedidoById(pedidoId);
+        if(pedido) {
+            if(!pedido.pagamentos) pedido.pagamentos = [];
+            pedido.pagamentos.push(pagamento);
+            this.savePedido(pedido);
+            
+             // Add credit to client
+            if (pedido.clienteId) {
+                this.addCreditoCliente(pedido.clienteId, troco);
+            }
+        }
   }
   
-  usarCreditoCliente(orderId: number, valor: number, userId: number) {
-      const sessao = this.getSessaoAberta(userId);
-      if(!sessao) throw new Error("Caixa Fechado.");
-
-      const pedido = this.getPedidoById(orderId);
-      if(!pedido) throw new Error("Pedido não encontrado");
-      if(!pedido.clienteId) throw new Error("Pedido sem cliente vinculado.");
-      
-      const cliente = this.clientes.find(c => c.id === pedido.clienteId);
-      if(!cliente) throw new Error("Cliente não encontrado.");
-      
-      if ((cliente.saldoCredito || 0) < valor) {
-          throw new Error("Saldo de crédito insuficiente.");
+  addCreditoCliente(clienteId: number, valor: number) {
+      const client = this.clientes.find(c => c.id === clienteId);
+      if (client) {
+          client.saldoCredito = (client.saldoCredito || 0) + valor;
       }
+  }
 
-      cliente.saldoCredito = (cliente.saldoCredito || 0) - valor;
+  usarCreditoCliente(pedidoId: number, valor: number, usuarioId: number) {
+      const sessao = this.getSessaoAberta(usuarioId);
+      if (!sessao) throw new Error("Caixa Fechado.");
 
-      const payment: Pagamento = {
+      const pedido = this.getPedidoById(pedidoId);
+      if (!pedido || !pedido.clienteId) throw new Error("Pedido inválido ou sem cliente.");
+
+      const client = this.clientes.find(c => c.id === pedido.clienteId);
+      if (!client || (client.saldoCredito || 0) < valor) throw new Error("Saldo de crédito insuficiente.");
+
+      // Deduct Credit
+      client.saldoCredito = (client.saldoCredito || 0) - valor;
+
+      // Register Payment on Order
+      const pag: Pagamento = {
           id: Math.random().toString(36).substr(2, 9),
           data: new Date().toISOString(),
-          formaPagamentoId: 999,
-          formaPagamentoNome: 'Crédito Cliente',
+          formaPagamentoId: -1, // Special ID for Credit
+          formaPagamentoNome: 'Crédito em Loja',
           valor: valor
       };
-      pedido.pagamentos.push(payment);
+      
+      if(!pedido.pagamentos) pedido.pagamentos = [];
+      pedido.pagamentos.push(pag);
+      this.savePedido(pedido);
 
-      const totalPaid = pedido.pagamentos.reduce((acc, p) => acc + p.valor, 0);
-      if (totalPaid >= (pedido.total - 0.01)) {
-          pedido.status = PedidoStatus.Pago;
-      }
-
-      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.UsoCredito, valor, `Pagamento com Crédito - Cliente #${cliente.id}`);
+      // Register Usage in Cash (Virtual Entry?)
+      // Actually using credit does NOT affect cash balance physically.
+      // But we should track it for balancing.
+      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.UsoCredito, valor, `Uso Crédito Pedido #${pedidoId}`, -1);
+  }
+  
+  cancelPagamento(pedidoId: number, pagamentoId: string, usuarioId: number) {
+       const sessao = this.getSessaoAberta(usuarioId);
+       if (!sessao) throw new Error("Caixa Fechado.");
+       
+       const pedido = this.getPedidoById(pedidoId);
+       if (!pedido) throw new Error("Pedido não encontrado");
+       
+       const pagIndex = pedido.pagamentos.findIndex(p => p.id === pagamentoId);
+       if (pagIndex === -1) throw new Error("Pagamento não encontrado");
+       
+       const pag = pedido.pagamentos[pagIndex];
+       
+       // Remove from order
+       pedido.pagamentos.splice(pagIndex, 1);
+       // Revert status if needed
+       if (pedido.status === PedidoStatus.Pago) pedido.status = PedidoStatus.Pendente;
+       
+       this.savePedido(pedido);
+       
+       // Register negative movement in Cash (Estorno)
+       // We log it as a Sangria technically or a negative Sale? 
+       // To keep it simple, let's use Sangria with specific observation, or allow negative values in Venda.
+       // Let's use Sangria for now to represent money leaving (returning to customer)
+       
+       if (pag.formaPagamentoNome === 'Crédito em Loja') {
+            // Refund credit to client
+            if (pedido.clienteId) this.addCreditoCliente(pedido.clienteId, pag.valor);
+       } else {
+            // Physical money back
+            this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Sangria, pag.valor, `ESTORNO Venda #${pedidoId}`, pag.formaPagamentoId);
+       }
   }
 
-  cancelPagamento(orderId: number, paymentId: string, userId: number) {
-      const sessao = this.getSessaoAberta(userId);
-      if(!sessao) throw new Error("Caixa Fechado. Abra o caixa para estornar.");
-      
-      const pedido = this.getPedidoById(orderId);
-      if(!pedido) throw new Error("Pedido não encontrado");
-      
-      if (!pedido.pagamentos) pedido.pagamentos = [];
-
-      const paymentIndex = pedido.pagamentos.findIndex(p => p.id === paymentId);
-      if(paymentIndex < 0) throw new Error("Pagamento não encontrado");
-      
-      const payment = pedido.pagamentos[paymentIndex];
-      
-      if (payment.formaPagamentoNome === 'Crédito Cliente') {
-          const cliente = this.clientes.find(c => c.id === pedido.clienteId);
-          if (cliente) {
-              cliente.saldoCredito = (cliente.saldoCredito || 0) + payment.valor;
-          }
-      }
-
-      pedido.pagamentos.splice(paymentIndex, 1);
-      pedido.status = PedidoStatus.Pendente; 
-      
-      this.lancarMovimento(sessao.id, TipoOperacaoCaixa.Sangria, payment.valor, `ESTORNO Pedido #${orderId} - ${payment.formaPagamentoNome}`, payment.formaPagamentoId);
-  }
 }
 
 export const db = new MockDB();

@@ -106,6 +106,17 @@ export interface ContaFinanceira {
   ativo: boolean;
 }
 
+// Histórico de movimentação ESPECÍFICO da conta (Extrato)
+export interface MovimentoConta {
+  id: number;
+  contaId: number;
+  data: string;
+  tipo: 'Entrada' | 'Saída';
+  valor: number;
+  descricao: string;
+  saldoApos: number; // Snapshot do saldo
+}
+
 export interface OperadoraCartao {
   id: number;
   nome: string;
@@ -218,6 +229,8 @@ export interface SessaoCaixa {
   dataConsolidacao?: string;
   
   saldoInicial: number;
+  contaOrigemId?: number; // De onde veio o fundo de troco (Cofre)
+
   saldoFinalSistema?: number; // Calculado pelo sistema
   saldoFinalInformado?: number; // Contado pelo operador
   
