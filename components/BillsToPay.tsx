@@ -1,10 +1,12 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { ContaPagar, Fornecedor, ContaFinanceira, FormaPagamento } from '../types';
-import { Plus, Edit2, Trash2, Save, X, FileText, Calendar, CheckCircle, AlertTriangle, ArrowRightCircle, Wallet, Filter, CreditCard } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, FileText, Calendar, CheckCircle, AlertTriangle, ArrowRightCircle, Wallet, Filter, CreditCard, PieChart } from 'lucide-react';
 
 const BillsToPay: React.FC = () => {
   const [bills, setBills] = useState<ContaPagar[]>([]);
@@ -14,7 +16,7 @@ const BillsToPay: React.FC = () => {
   const [view, setView] = useState<'list' | 'form'>('list');
   
   // Filters State
-  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Pendente' | 'Pago'>('Pendente');
+  const [filterStatus, setFilterStatus] = useState<'Todos' | 'Pendente' | 'Pago' | 'Parcial'>('Pendente');
   const [filterSupplier, setFilterSupplier] = useState<number | ''>('');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
@@ -27,6 +29,8 @@ const BillsToPay: React.FC = () => {
       fornecedorNome: '',
       descricao: '',
       valor: 0,
+      valorPago: 0,
+      historicoPagamentos: [],
       dataEmissao: new Date().toISOString().split('T')[0],
       dataVencimento: new Date().toISOString().split('T')[0],
       status: 'Pendente'
@@ -40,6 +44,8 @@ const BillsToPay: React.FC = () => {
   const [paySourceId, setPaySourceId] = useState<number | ''>('');
   const [payMethodId, setPayMethodId] = useState<number | ''>('');
   const [payObs, setPayObs] = useState('');
+  const [payAmount, setPayAmount] = useState<string>(''); // For Partial Payment Input
+  const [selectedBillForPay, setSelectedBillForPay] = useState<ContaPagar | null>(null);
 
   useEffect(() => {
     loadData();
@@ -59,7 +65,7 @@ const BillsToPay: React.FC = () => {
 
   const handleEdit = (bill: ContaPagar) => {
       if (bill.status === 'Pago') {
-          alert("Não é possível editar uma conta já paga.");
+          alert("Não é possível editar uma conta já paga integralmente.");
           return;
       }
       setFormData({...bill});
@@ -86,11 +92,16 @@ const BillsToPay: React.FC = () => {
 
   // Payment Logic
   const openPayModal = (bill: ContaPagar) => {
+      setSelectedBillForPay(bill);
       setPayBillId(bill.id);
       setPayDate(new Date().toISOString().split('T')[0]);
       setPaySourceId('');
       setPayMethodId('');
       setPayObs('');
+      
+      const restante = bill.valor - (bill.valorPago || 0);
+      setPayAmount(restante.toFixed(2));
+      
       setIsPayModalOpen(true);
   };
 
@@ -99,8 +110,15 @@ const BillsToPay: React.FC = () => {
           alert("Selecione a conta de origem para o pagamento.");
           return;
       }
+      
+      const val = parseFloat(payAmount);
+      if (isNaN(val) || val <= 0) {
+          alert("Valor de pagamento inválido.");
+          return;
+      }
+
       try {
-          db.pagarConta(payBillId, Number(paySourceId), payDate, payMethodId ? Number(payMethodId) : undefined, payObs);
+          db.pagarConta(payBillId, Number(paySourceId), payDate, payMethodId ? Number(payMethodId) : undefined, payObs, val);
           alert("Pagamento registrado com sucesso!");
           setIsPayModalOpen(false);
           loadData();
@@ -187,6 +205,16 @@ const BillsToPay: React.FC = () => {
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                 <div className="bg-white w-full max-w-md rounded-xl shadow-2xl p-6 animate-in zoom-in duration-200">
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-green-700"><CheckCircle /> Baixar / Pagar Conta</h3>
+                    
+                    {selectedBillForPay && (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm">
+                            <p><b>Fornecedor:</b> {selectedBillForPay.fornecedorNome}</p>
+                            <p><b>Total:</b> R$ {selectedBillForPay.valor.toFixed(2)}</p>
+                            <p><b>Já Pago:</b> R$ {(selectedBillForPay.valorPago || 0).toFixed(2)}</p>
+                            <p className="text-blue-600 font-bold">Restante: R$ {(selectedBillForPay.valor - (selectedBillForPay.valorPago || 0)).toFixed(2)}</p>
+                        </div>
+                    )}
+
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Data do Pagamento</label>
@@ -209,6 +237,16 @@ const BillsToPay: React.FC = () => {
                                     <option key={m.id} value={m.id}>{m.nome}</option>
                                 ))}
                             </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Valor a Pagar (R$)</label>
+                            <input 
+                                type="number" 
+                                step="0.01"
+                                value={payAmount} 
+                                onChange={e => setPayAmount(e.target.value)} 
+                                className="w-full p-2 border border-gray-300 rounded font-bold text-lg" 
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Observações (Opcional)</label>
@@ -278,6 +316,7 @@ const BillsToPay: React.FC = () => {
                 >
                     <option value="Todos">Todos</option>
                     <option value="Pendente">Pendentes</option>
+                    <option value="Parcial">Parciais</option>
                     <option value="Pago">Pagos</option>
                 </select>
             </div>
@@ -290,16 +329,16 @@ const BillsToPay: React.FC = () => {
                 <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                         <th className="p-4 text-sm font-bold text-gray-600">Datas</th>
-                        <th className="p-4 text-sm font-bold text-gray-600">Fornecedor</th>
-                        <th className="p-4 text-sm font-bold text-gray-600">Descrição</th>
+                        <th className="p-4 text-sm font-bold text-gray-600">Fornecedor / Descrição</th>
                         <th className="p-4 text-sm font-bold text-gray-600 text-right">Valor</th>
+                        <th className="p-4 text-sm font-bold text-gray-600 text-right">Pago</th>
                         <th className="p-4 text-sm font-bold text-gray-600 text-center">Status</th>
                         <th className="p-4 text-sm font-bold text-gray-600 text-right">Ações</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                     {filteredBills.map(b => {
-                        const isLate = b.status === 'Pendente' && new Date(b.dataVencimento) < new Date(new Date().toISOString().split('T')[0]);
+                        const isLate = b.status !== 'Pago' && new Date(b.dataVencimento) < new Date(new Date().toISOString().split('T')[0]);
                         return (
                         <tr key={b.id} className="hover:bg-gray-50">
                             <td className="p-4 text-sm text-gray-600 font-mono">
@@ -309,23 +348,31 @@ const BillsToPay: React.FC = () => {
                                 </div>
                                 <div className="text-[10px] text-gray-400 mt-1">Emissão: {b.dataEmissao ? new Date(b.dataEmissao).toLocaleDateString('pt-BR') : '-'}</div>
                             </td>
-                            <td className="p-4 font-bold text-gray-800">{b.fornecedorNome}</td>
-                            <td className="p-4 text-sm text-gray-600">{b.descricao}</td>
-                            <td className="p-4 text-right font-bold text-red-600">R$ {b.valor.toFixed(2)}</td>
+                            <td className="p-4">
+                                <div className="font-bold text-gray-800">{b.fornecedorNome}</div>
+                                <div className="text-xs text-gray-500">{b.descricao}</div>
+                            </td>
+                            <td className="p-4 text-right font-bold text-gray-800">R$ {b.valor.toFixed(2)}</td>
+                            <td className="p-4 text-right text-sm text-green-600">
+                                {b.valorPago && b.valorPago > 0 ? `R$ ${b.valorPago.toFixed(2)}` : '-'}
+                            </td>
                             <td className="p-4 text-center">
-                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${b.status === 'Pago' ? 'bg-green-100 text-green-700' : isLate ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                    {b.status === 'Pago' ? 'Pago' : isLate ? 'Vencido' : 'Pendente'}
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold 
+                                    ${b.status === 'Pago' ? 'bg-green-100 text-green-700' : 
+                                      b.status === 'Parcial' ? 'bg-blue-100 text-blue-700' : 
+                                      isLate ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {b.status === 'Pago' ? 'Pago' : b.status === 'Parcial' ? 'Parcial' : isLate ? 'Vencido' : 'Pendente'}
                                 </span>
                             </td>
                             <td className="p-4 text-right">
                                 <div className="flex justify-end gap-2">
-                                    {b.status === 'Pendente' && (
-                                        <>
-                                            <button onClick={() => openPayModal(b)} className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-xs font-bold hover:bg-green-100 flex items-center gap-1">
-                                                <Wallet size={14}/> Pagar
-                                            </button>
-                                            <button onClick={() => handleEdit(b)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={18}/></button>
-                                        </>
+                                    {b.status !== 'Pago' && (
+                                        <button onClick={() => openPayModal(b)} className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded text-xs font-bold hover:bg-green-100 flex items-center gap-1">
+                                            <Wallet size={14}/> Pagar
+                                        </button>
+                                    )}
+                                    {b.status !== 'Pago' && (
+                                        <button onClick={() => handleEdit(b)} className="p-2 text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={18}/></button>
                                     )}
                                     <button onClick={() => handleDelete(b.id)} className="p-2 text-red-500 hover:bg-red-50 rounded"><Trash2 size={18}/></button>
                                 </div>

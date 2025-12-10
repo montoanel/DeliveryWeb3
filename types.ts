@@ -138,16 +138,33 @@ export interface FormaPagamento {
   contaDestinoId?: number; // Se for PIX ou Transferência direta
 }
 
+export interface HistoricoTransacao {
+  data: string;
+  valor: number;
+  contaFinanceiraId?: number; // Origem/Destino
+  formaPagamentoId?: number; // Meio
+  observacao?: string;
+}
+
 export interface ContaReceber {
   id: string;
-  pedidoId: number;
-  dataVenda: string;
-  dataPrevisao: string;
+  descricao?: string; // Para lançamentos manuais
+  clienteId?: number;
+  clienteNome?: string;
+  pedidoId?: number; // Opcional se for lançamento manual
+  
+  dataVenda: string; // Data de competência
+  dataPrevisao: string; // Vencimento / Previsão
+  
   valorBruto: number;
   taxaAplicada: number;
-  valorLiquido: number;
-  status: 'Pendente' | 'Recebido' | 'Conciliado';
+  valorLiquido: number; // Valor final esperado
   
+  // Controle de Baixa
+  status: 'Pendente' | 'Recebido' | 'Conciliado' | 'Parcial';
+  valorRecebido: number; // Acumulado
+  historicoRecebimentos: HistoricoTransacao[];
+
   formaPagamentoNome: string;
   origem: string; // Nome da Operadora ou Banco
   contaDestinoId?: number; // Para facilitar filtragem por conta
@@ -174,11 +191,14 @@ export interface ContaPagar {
   dataVencimento: string; // YYYY-MM-DD
   
   // Dados de Baixa
-  status: 'Pendente' | 'Pago';
+  status: 'Pendente' | 'Pago' | 'Parcial';
+  valorPago: number; // Acumulado
+  historicoPagamentos: HistoricoTransacao[];
+  
+  // Campos legado mantidos para compatibilidade, mas o histórico é a fonte da verdade
   dataPagamento?: string;
-  valorPago?: number;
-  contaOrigemId?: number; // De onde saiu o dinheiro (Cofre/Banco)
-  formaPagamentoId?: number; // Como foi pago (PIX, Dinheiro, etc)
+  contaOrigemId?: number; 
+  formaPagamentoId?: number;
   observacoes?: string;
 }
 

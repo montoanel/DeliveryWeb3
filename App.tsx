@@ -1,8 +1,10 @@
 
 
+
+
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
 import CashControl from './components/CashControl';
@@ -20,6 +22,7 @@ import Treasury from './components/Treasury';
 import FinanceConfig from './components/FinanceConfig';
 import Suppliers from './components/Suppliers';
 import BillsToPay from './components/BillsToPay';
+import AccountsReceivable from './components/AccountsReceivable';
 import { Usuario } from './types';
 
 const SidebarLink = ({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) => {
@@ -73,6 +76,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
              {sidebarOpen && <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Financeiro</h3>}
              <SidebarLink to="/tesouraria" icon={Landmark} label={sidebarOpen ? "Tesouraria" : ""} />
              <SidebarLink to="/contas-pagar" icon={FileText} label={sidebarOpen ? "Contas a Pagar" : ""} />
+             <SidebarLink to="/contas-receber" icon={TrendingUp} label={sidebarOpen ? "Contas a Receber" : ""} />
              <SidebarLink to="/fornecedores" icon={Truck} label={sidebarOpen ? "Fornecedores" : ""} />
           </div>
           
@@ -154,6 +158,7 @@ const App: React.FC = () => {
           <Route path="/cozinha" element={<Kitchen />} />
           <Route path="/tesouraria" element={<Treasury />} />
           <Route path="/contas-pagar" element={<BillsToPay />} />
+          <Route path="/contas-receber" element={<AccountsReceivable />} />
           <Route path="/fornecedores" element={<Suppliers />} />
           
           <Route path="/produtos" element={<Products />} />

@@ -3,6 +3,8 @@
 
 
 
+
+
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
@@ -127,8 +129,8 @@ class MockDB {
 
     const today = new Date().toISOString().split('T')[0];
     this.contasPagar = [
-        { id: 1, fornecedorId: 3, fornecedorNome: 'Companhia de Energia', descricao: 'Conta de Luz - Dezembro', valor: 350.50, dataEmissao: today, dataVencimento: today, status: 'Pendente' },
-        { id: 2, fornecedorId: 1, fornecedorNome: 'Atacadão das Bebidas', descricao: 'Reposição Refrigerantes', valor: 1200.00, dataEmissao: today, dataVencimento: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], status: 'Pendente' }, // 5 days ahead
+        { id: 1, fornecedorId: 3, fornecedorNome: 'Companhia de Energia', descricao: 'Conta de Luz - Dezembro', valor: 350.50, valorPago: 0, historicoPagamentos: [], dataEmissao: today, dataVencimento: today, status: 'Pendente' },
+        { id: 2, fornecedorId: 1, fornecedorNome: 'Atacadão das Bebidas', descricao: 'Reposição Refrigerantes', valor: 1200.00, valorPago: 0, historicoPagamentos: [], dataEmissao: today, dataVencimento: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], status: 'Pendente' }, // 5 days ahead
     ];
   }
 
@@ -440,12 +442,17 @@ class MockDB {
           // Fill denormalized name
           const supplier = this.fornecedores.find(f => f.id === item.fornecedorId);
           item.fornecedorNome = supplier ? supplier.nome : 'Desconhecido';
+          item.valorPago = 0;
+          item.historicoPagamentos = [];
           this.contasPagar.push(item);
       } else {
           const index = this.contasPagar.findIndex(c => c.id === item.id);
           if (index >= 0) {
               const supplier = this.fornecedores.find(f => f.id === item.fornecedorId);
               item.fornecedorNome = supplier ? supplier.nome : 'Desconhecido';
+              // Preserve payment history if editing (should ideally block editing paid bills)
+              item.valorPago = this.contasPagar[index].valorPago;
+              item.historicoPagamentos = this.contasPagar[index].historicoPagamentos;
               this.contasPagar[index] = item;
           }
       }
@@ -453,30 +460,109 @@ class MockDB {
   
   deleteContaPagar(id: number) { this.contasPagar = this.contasPagar.filter(c => c.id !== id); }
 
-  pagarConta(contaId: number, contaFinanceiraId: number, dataPagamento: string, formaPagamentoId?: number, observacoes?: string) {
+  pagarConta(contaId: number, contaFinanceiraId: number, dataPagamento: string, formaPagamentoId?: number, observacoes?: string, valorPago: number = 0) {
       const index = this.contasPagar.findIndex(c => c.id === contaId);
       if (index === -1) throw new Error("Conta a pagar não encontrada.");
       
       const conta = this.contasPagar[index];
-      if (conta.status === 'Pago') throw new Error("Esta conta já está paga.");
+      
+      // Calculate remaining amount
+      const restante = conta.valor - (conta.valorPago || 0);
+      
+      // Default to full remaining if not specified or 0
+      const valorParaPagar = (valorPago > 0) ? valorPago : restante;
+
+      if (valorParaPagar > restante + 0.01) { // 0.01 tolerance
+          throw new Error(`Valor a pagar (R$ ${valorParaPagar.toFixed(2)}) é maior que o saldo restante (R$ ${restante.toFixed(2)}).`);
+      }
 
       // Check balance and debit
       this.lancarMovimentoConta(
           contaFinanceiraId, 
           'Saída', 
-          conta.valor, 
-          `Pagto. Fornecedor: ${conta.fornecedorNome} - ${conta.descricao}`
+          valorParaPagar, 
+          `Pagto. Fornecedor: ${conta.fornecedorNome} - ${conta.descricao} ${valorParaPagar < restante ? '(Parcial)' : ''}`
       );
 
       // Update Bill Status
+      const novoTotalPago = (conta.valorPago || 0) + valorParaPagar;
+      const novoStatus = novoTotalPago >= (conta.valor - 0.01) ? 'Pago' : 'Parcial';
+
       this.contasPagar[index] = {
           ...conta,
-          status: 'Pago',
-          dataPagamento: dataPagamento,
-          valorPago: conta.valor,
-          contaOrigemId: contaFinanceiraId,
-          formaPagamentoId: formaPagamentoId, // Store Method
-          observacoes: observacoes
+          status: novoStatus,
+          valorPago: novoTotalPago,
+          historicoPagamentos: [
+              ...(conta.historicoPagamentos || []),
+              {
+                  data: dataPagamento,
+                  valor: valorParaPagar,
+                  contaFinanceiraId,
+                  formaPagamentoId,
+                  observacao: observacoes
+              }
+          ]
+      };
+  }
+
+  // --- ACCOUNTS RECEIVABLE (MANUAL) ---
+  saveContaReceber(item: ContaReceber) {
+      if(!item.id) item.id = Math.random().toString(36).substr(2, 9);
+      
+      // If manual entry, ensure arrays exist
+      if(!item.historicoRecebimentos) item.historicoRecebimentos = [];
+      if(!item.valorRecebido) item.valorRecebido = 0;
+
+      const index = this.contasReceber.findIndex(c => c.id === item.id);
+      if(index >= 0) {
+          this.contasReceber[index] = item;
+      } else {
+          this.contasReceber.push(item);
+      }
+  }
+
+  deleteContaReceber(id: string) {
+      this.contasReceber = this.contasReceber.filter(c => c.id !== id);
+  }
+
+  receberConta(contaId: string, contaFinanceiraId: number, dataRecebimento: string, formaPagamentoId?: number, observacoes?: string, valorRecebido: number = 0) {
+      const index = this.contasReceber.findIndex(c => c.id === contaId);
+      if (index === -1) throw new Error("Conta a receber não encontrada.");
+      
+      const conta = this.contasReceber[index];
+      
+      const restante = conta.valorLiquido - (conta.valorRecebido || 0);
+      const valorParaReceber = (valorRecebido > 0) ? valorRecebido : restante;
+
+      if (valorParaReceber > restante + 0.01) {
+          throw new Error(`Valor a receber (R$ ${valorParaReceber.toFixed(2)}) é maior que o saldo restante (R$ ${restante.toFixed(2)}).`);
+      }
+
+      // Credit Account
+      this.lancarMovimentoConta(
+          contaFinanceiraId, 
+          'Entrada', 
+          valorParaReceber, 
+          `Recebimento: ${conta.origem} - ${conta.descricao || 'Pedido'} ${valorParaReceber < restante ? '(Parcial)' : ''}`
+      );
+
+      const novoTotalRecebido = (conta.valorRecebido || 0) + valorParaReceber;
+      const novoStatus = novoTotalRecebido >= (conta.valorLiquido - 0.01) ? 'Recebido' : 'Parcial';
+
+      this.contasReceber[index] = {
+          ...conta,
+          status: novoStatus,
+          valorRecebido: novoTotalRecebido,
+          historicoRecebimentos: [
+              ...(conta.historicoRecebimentos || []),
+              {
+                  data: dataRecebimento,
+                  valor: valorParaReceber,
+                  contaFinanceiraId,
+                  formaPagamentoId,
+                  observacao: observacoes
+              }
+          ]
       };
   }
 
@@ -760,6 +846,8 @@ class MockDB {
           taxaAplicada: taxa,
           valorLiquido,
           status,
+          valorRecebido: status === 'Recebido' ? valorLiquido : 0,
+          historicoRecebimentos: [],
           formaPagamentoNome: formaPagamento.nome,
           origem,
           contaDestinoId
