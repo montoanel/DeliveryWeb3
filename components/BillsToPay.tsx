@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { ContaPagar, Fornecedor, ContaFinanceira, FormaPagamento } from '../types';
@@ -28,6 +24,7 @@ const BillsToPay: React.FC = () => {
       fornecedorId: 0,
       fornecedorNome: '',
       descricao: '',
+      documento: '', // New field
       valor: 0,
       valorPago: 0,
       historicoPagamentos: [],
@@ -129,18 +126,12 @@ const BillsToPay: React.FC = () => {
 
   // Filter Logic
   const filteredBills = bills.filter(b => {
-      // 1. Status Filter
       if (filterStatus !== 'Todos' && b.status !== filterStatus) return false;
-      
-      // 2. Supplier Filter
       if (filterSupplier && b.fornecedorId !== filterSupplier) return false;
-
-      // 3. Date Range Filter
       if (filterStartDate && filterEndDate) {
           const dateToCheck = filterDateType === 'Vencimento' ? b.dataVencimento : b.dataEmissao;
           if (dateToCheck < filterStartDate || dateToCheck > filterEndDate) return false;
       }
-
       return true;
   });
 
@@ -171,6 +162,10 @@ const BillsToPay: React.FC = () => {
                           <option value={0}>Selecione...</option>
                           {suppliers.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
                       </select>
+                  </div>
+                  <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Nº Documento</label>
+                      <input type="text" value={formData.documento || ''} onChange={e => setFormData({...formData, documento: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="NFe, Boleto, Recibo..."/>
                   </div>
                   <div>
                       <label className="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
@@ -209,6 +204,7 @@ const BillsToPay: React.FC = () => {
                     {selectedBillForPay && (
                         <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm">
                             <p><b>Fornecedor:</b> {selectedBillForPay.fornecedorNome}</p>
+                            <p><b>Doc:</b> {selectedBillForPay.documento || '-'}</p>
                             <p><b>Total:</b> R$ {selectedBillForPay.valor.toFixed(2)}</p>
                             <p><b>Já Pago:</b> R$ {(selectedBillForPay.valorPago || 0).toFixed(2)}</p>
                             <p className="text-blue-600 font-bold">Restante: R$ {(selectedBillForPay.valor - (selectedBillForPay.valorPago || 0)).toFixed(2)}</p>
@@ -268,6 +264,7 @@ const BillsToPay: React.FC = () => {
 
         {/* Filter Bar */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-end gap-4">
+            {/* ... Filters ... */}
             <div className="flex items-center gap-2 text-gray-500 font-bold mb-2 w-full lg:w-auto lg:mb-0">
                 <Filter size={18} /> Filtros
             </div>
@@ -346,7 +343,10 @@ const BillsToPay: React.FC = () => {
                                     <Calendar size={14}/> Venc: {new Date(b.dataVencimento).toLocaleDateString('pt-BR')}
                                     {isLate && <AlertTriangle size={14} className="text-red-500" title="Vencido"/>}
                                 </div>
-                                <div className="text-[10px] text-gray-400 mt-1">Emissão: {b.dataEmissao ? new Date(b.dataEmissao).toLocaleDateString('pt-BR') : '-'}</div>
+                                <div className="text-[10px] text-gray-400 mt-1">
+                                    Emissão: {b.dataEmissao ? new Date(b.dataEmissao).toLocaleDateString('pt-BR') : '-'}
+                                    {b.documento && <span className="block text-blue-500 font-bold">Doc: {b.documento}</span>}
+                                </div>
                             </td>
                             <td className="p-4">
                                 <div className="font-bold text-gray-800">{b.fornecedorNome}</div>

@@ -149,6 +149,7 @@ export interface HistoricoTransacao {
 export interface ContaReceber {
   id: string;
   descricao?: string; // Para lançamentos manuais
+  documento?: string; // Novo: Nº Documento
   clienteId?: number;
   clienteNome?: string;
   pedidoId?: number; // Opcional se for lançamento manual
@@ -185,6 +186,7 @@ export interface ContaPagar {
   id: number;
   fornecedorId: number;
   fornecedorNome: string; // Denormalized for easy listing
+  documento?: string; // Novo: Nº Documento (NFe, Boleto)
   descricao: string; // "Compra de Matéria Prima", "Energia", etc.
   valor: number;
   dataEmissao: string; // YYYY-MM-DD (Nova)

@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
@@ -85,7 +79,7 @@ class MockDB {
     // FINANCE SEED
     this.contasFinanceiras = [
         { id: 1, nome: 'Cofre Principal', tipo: 'Cofre', saldoAtual: 1000.00, ativo: true },
-        { id: 2, nome: 'Conta Stone', tipo: 'Banco', saldoAtual: 2500.00, ativo: true }, // Changed from Itau
+        { id: 2, nome: 'Conta Stone', tipo: 'Banco', saldoAtual: 2500.00, ativo: true }, 
         { id: 3, nome: 'Conta Inter', tipo: 'Banco', saldoAtual: 1500.00, ativo: true },
     ];
     
@@ -129,8 +123,8 @@ class MockDB {
 
     const today = new Date().toISOString().split('T')[0];
     this.contasPagar = [
-        { id: 1, fornecedorId: 3, fornecedorNome: 'Companhia de Energia', descricao: 'Conta de Luz - Dezembro', valor: 350.50, valorPago: 0, historicoPagamentos: [], dataEmissao: today, dataVencimento: today, status: 'Pendente' },
-        { id: 2, fornecedorId: 1, fornecedorNome: 'Atacadão das Bebidas', descricao: 'Reposição Refrigerantes', valor: 1200.00, valorPago: 0, historicoPagamentos: [], dataEmissao: today, dataVencimento: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], status: 'Pendente' }, // 5 days ahead
+        { id: 1, fornecedorId: 3, fornecedorNome: 'Companhia de Energia', documento: 'NFe 9988', descricao: 'Conta de Luz - Dezembro', valor: 350.50, valorPago: 0, historicoPagamentos: [], dataEmissao: today, dataVencimento: today, status: 'Pendente' },
+        { id: 2, fornecedorId: 1, fornecedorNome: 'Atacadão das Bebidas', documento: 'Boleto 123', descricao: 'Reposição Refrigerantes', valor: 1200.00, valorPago: 0, historicoPagamentos: [], dataEmissao: today, dataVencimento: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], status: 'Pendente' }, 
     ];
   }
 

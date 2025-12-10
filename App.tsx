@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp } from 'lucide-react';
@@ -77,16 +74,16 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
              <SidebarLink to="/tesouraria" icon={Landmark} label={sidebarOpen ? "Tesouraria" : ""} />
              <SidebarLink to="/contas-pagar" icon={FileText} label={sidebarOpen ? "Contas a Pagar" : ""} />
              <SidebarLink to="/contas-receber" icon={TrendingUp} label={sidebarOpen ? "Contas a Receber" : ""} />
-             <SidebarLink to="/fornecedores" icon={Truck} label={sidebarOpen ? "Fornecedores" : ""} />
           </div>
           
           {/* Cadastros Section */}
           <div className="pt-4 mt-4 border-t border-gray-100">
             {sidebarOpen && <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Cadastros</h3>}
+            <SidebarLink to="/clientes" icon={Users} label={sidebarOpen ? "Clientes" : ""} />
+            <SidebarLink to="/fornecedores" icon={Truck} label={sidebarOpen ? "Fornecedores" : ""} />
             <SidebarLink to="/produtos" icon={Package} label={sidebarOpen ? "Produtos" : ""} />
             <SidebarLink to="/grupos" icon={Tag} label={sidebarOpen ? "Grupos de Produtos" : ""} />
             <SidebarLink to="/config-adicionais" icon={Layers} label={sidebarOpen ? "Config. Adicionais" : ""} />
-            <SidebarLink to="/clientes" icon={Users} label={sidebarOpen ? "Clientes" : ""} />
             <SidebarLink to="/bairros" icon={MapPin} label={sidebarOpen ? "Bairros / Taxas" : ""} />
             <SidebarLink to="/formas-pagamento" icon={CreditCard} label={sidebarOpen ? "Formas de Pagamento" : ""} />
             <SidebarLink to="/config-financeira" icon={Landmark} label={sidebarOpen ? "Contas e Taxas" : ""} />

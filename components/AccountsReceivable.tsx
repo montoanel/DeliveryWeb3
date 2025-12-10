@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/mockDb';
 import { ContaReceber, Cliente, ContaFinanceira, FormaPagamento } from '../types';
-import { Plus, Edit2, Trash2, Save, X, TrendingUp, Calendar, CheckCircle, Wallet, Filter, ArrowDownLeft } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, TrendingUp, Calendar, CheckCircle, Wallet, Filter, ArrowDownLeft, Search, User } from 'lucide-react';
 
 const AccountsReceivable: React.FC = () => {
   const [receivables, setReceivables] = useState<ContaReceber[]>([]);
@@ -21,7 +21,9 @@ const AccountsReceivable: React.FC = () => {
   const initialForm: ContaReceber = {
       id: '',
       descricao: '',
+      documento: '', // New field
       clienteNome: '',
+      clienteId: undefined,
       valorBruto: 0,
       taxaAplicada: 0,
       valorLiquido: 0,
@@ -34,6 +36,10 @@ const AccountsReceivable: React.FC = () => {
       formaPagamentoNome: 'Outros'
   };
   const [formData, setFormData] = useState<ContaReceber>(initialForm);
+
+  // Client Search State for Form
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
 
   // Receive Modal State
   const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
@@ -58,6 +64,7 @@ const AccountsReceivable: React.FC = () => {
 
   const handleNew = () => {
       setFormData({...initialForm});
+      setClientSearchTerm('');
       setView('form');
   };
 
@@ -74,15 +81,33 @@ const AccountsReceivable: React.FC = () => {
           alert("Preencha descrição e valor.");
           return;
       }
-      // Simple manual logic: Net = Gross (no auto tax calc for manual yet)
+      
+      // If client search term is filled but no ID selected, assume it's just text
+      let finalClienteNome = formData.clienteNome;
+      if (!formData.clienteId && clientSearchTerm) {
+          finalClienteNome = clientSearchTerm;
+      }
+
       const payload = {
           ...formData,
+          clienteNome: finalClienteNome,
           valorLiquido: formData.valorBruto
       };
       db.saveContaReceber(payload);
       loadData();
       setView('list');
   };
+
+  const handleClientSelect = (c: Cliente) => {
+      setFormData({...formData, clienteId: c.id, clienteNome: c.nome});
+      setClientSearchTerm(c.nome);
+      setShowClientSuggestions(false);
+  };
+
+  const filteredClientsForSearch = clients.filter(c => 
+      c.nome.toLowerCase().includes(clientSearchTerm.toLowerCase()) || 
+      c.cpfCnpj.includes(clientSearchTerm)
+  );
 
   // Receive Logic
   const openReceiveModal = (bill: ContaReceber) => {
@@ -145,9 +170,53 @@ const AccountsReceivable: React.FC = () => {
                       <input type="text" required value={formData.descricao} onChange={e => setFormData({...formData, descricao: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ex: Venda de Ativo, Bônus..."/>
                   </div>
                   <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Cliente / Origem</label>
-                      <input type="text" value={formData.clienteNome} onChange={e => setFormData({...formData, clienteNome: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Opcional"/>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Nº Documento</label>
+                      <input type="text" value={formData.documento || ''} onChange={e => setFormData({...formData, documento: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nota, Recibo..."/>
                   </div>
+                  
+                  {/* Client Autocomplete */}
+                  <div className="relative">
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Cliente / Origem</label>
+                      <div className="flex items-center gap-2 border border-gray-300 rounded-lg p-2.5 bg-white focus-within:ring-2 focus-within:ring-blue-500">
+                          <User size={18} className="text-gray-400"/>
+                          <input 
+                            type="text" 
+                            value={clientSearchTerm} 
+                            onChange={e => {
+                                setClientSearchTerm(e.target.value);
+                                setShowClientSuggestions(true);
+                                // Clear ID if typing manual name different from selected
+                                if(formData.clienteId && e.target.value !== formData.clienteNome) {
+                                    setFormData({...formData, clienteId: undefined, clienteNome: e.target.value});
+                                } else {
+                                    setFormData({...formData, clienteNome: e.target.value});
+                                }
+                            }}
+                            onFocus={() => setShowClientSuggestions(true)}
+                            className="flex-1 outline-none" 
+                            placeholder="Buscar Cliente Cadastrado..."
+                          />
+                          {formData.clienteId && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold">Vinculado</span>}
+                      </div>
+                      
+                      {showClientSuggestions && clientSearchTerm && !formData.clienteId && (
+                          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 shadow-lg max-h-40 overflow-auto z-10 rounded-b-lg">
+                              {filteredClientsForSearch.map(c => (
+                                  <div 
+                                    key={c.id} 
+                                    className="p-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-50"
+                                    onClick={() => handleClientSelect(c)}
+                                  >
+                                      <b>{c.nome}</b> - <span className="text-gray-500">{c.cpfCnpj}</span>
+                                  </div>
+                              ))}
+                              {filteredClientsForSearch.length === 0 && (
+                                  <div className="p-2 text-gray-400 text-sm">Nenhum cliente encontrado. Será salvo como texto livre.</div>
+                              )}
+                          </div>
+                      )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                       <div>
                           <label className="block text-sm font-bold text-gray-700 mb-1">Valor (R$)</label>
@@ -177,6 +246,7 @@ const AccountsReceivable: React.FC = () => {
                     {selectedBillForReceive && (
                         <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100 text-sm">
                             <p><b>Origem:</b> {selectedBillForReceive.origem}</p>
+                            <p><b>Doc:</b> {selectedBillForReceive.documento || '-'}</p>
                             <p><b>Total Líquido:</b> R$ {selectedBillForReceive.valorLiquido.toFixed(2)}</p>
                             <p><b>Já Recebido:</b> R$ {(selectedBillForReceive.valorRecebido || 0).toFixed(2)}</p>
                             <p className="text-blue-600 font-bold">Restante: R$ {(selectedBillForReceive.valorLiquido - (selectedBillForReceive.valorRecebido || 0)).toFixed(2)}</p>
@@ -288,6 +358,7 @@ const AccountsReceivable: React.FC = () => {
                         <tr key={r.id} className="hover:bg-gray-50">
                             <td className="p-4 text-sm text-gray-600 font-mono">
                                 {new Date(r.dataPrevisao).toLocaleDateString('pt-BR')}
+                                {r.documento && <div className="text-xs text-blue-500 font-bold mt-1">{r.documento}</div>}
                             </td>
                             <td className="p-4">
                                 <div className="font-bold text-gray-800">{r.origem}</div>
