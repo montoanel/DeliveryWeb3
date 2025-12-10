@@ -1,6 +1,8 @@
 
 
 
+
+
 import { 
   Produto, GrupoProduto, Cliente, Pedido, Usuario, Caixa, 
   SessaoCaixa, CaixaMovimento, FormaPagamento, ConfiguracaoAdicional,
@@ -123,9 +125,10 @@ class MockDB {
         { id: 3, nome: 'Companhia de Energia', documento: '00.000.000/0001-00', telefone: '0800', ativo: true },
     ];
 
+    const today = new Date().toISOString().split('T')[0];
     this.contasPagar = [
-        { id: 1, fornecedorId: 3, fornecedorNome: 'Companhia de Energia', descricao: 'Conta de Luz - Dezembro', valor: 350.50, dataVencimento: new Date().toISOString().split('T')[0], status: 'Pendente' },
-        { id: 2, fornecedorId: 1, fornecedorNome: 'Atacadão das Bebidas', descricao: 'Reposição Refrigerantes', valor: 1200.00, dataVencimento: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], status: 'Pendente' }, // 5 days ahead
+        { id: 1, fornecedorId: 3, fornecedorNome: 'Companhia de Energia', descricao: 'Conta de Luz - Dezembro', valor: 350.50, dataEmissao: today, dataVencimento: today, status: 'Pendente' },
+        { id: 2, fornecedorId: 1, fornecedorNome: 'Atacadão das Bebidas', descricao: 'Reposição Refrigerantes', valor: 1200.00, dataEmissao: today, dataVencimento: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0], status: 'Pendente' }, // 5 days ahead
     ];
   }
 
@@ -450,7 +453,7 @@ class MockDB {
   
   deleteContaPagar(id: number) { this.contasPagar = this.contasPagar.filter(c => c.id !== id); }
 
-  pagarConta(contaId: number, contaFinanceiraId: number, dataPagamento: string, observacoes?: string) {
+  pagarConta(contaId: number, contaFinanceiraId: number, dataPagamento: string, formaPagamentoId?: number, observacoes?: string) {
       const index = this.contasPagar.findIndex(c => c.id === contaId);
       if (index === -1) throw new Error("Conta a pagar não encontrada.");
       
@@ -472,6 +475,7 @@ class MockDB {
           dataPagamento: dataPagamento,
           valorPago: conta.valor,
           contaOrigemId: contaFinanceiraId,
+          formaPagamentoId: formaPagamentoId, // Store Method
           observacoes: observacoes
       };
   }

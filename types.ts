@@ -170,6 +170,7 @@ export interface ContaPagar {
   fornecedorNome: string; // Denormalized for easy listing
   descricao: string; // "Compra de Matéria Prima", "Energia", etc.
   valor: number;
+  dataEmissao: string; // YYYY-MM-DD (Nova)
   dataVencimento: string; // YYYY-MM-DD
   
   // Dados de Baixa
@@ -177,6 +178,7 @@ export interface ContaPagar {
   dataPagamento?: string;
   valorPago?: number;
   contaOrigemId?: number; // De onde saiu o dinheiro (Cofre/Banco)
+  formaPagamentoId?: number; // Como foi pago (PIX, Dinheiro, etc)
   observacoes?: string;
 }
 
