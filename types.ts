@@ -80,6 +80,7 @@ export interface Produto {
   unidadeMedida: string; // 'UN', 'KG', 'LT'
   grupoProdutoId: number;
   imagem?: string;
+  disponivelTouch?: boolean; // Nova flag para Totem/Tablet
 }
 
 export interface ConfiguracaoItemRule {

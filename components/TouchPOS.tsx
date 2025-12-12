@@ -46,6 +46,10 @@ const TouchPOS: React.FC<TouchPOSProps> = ({ user }) => {
     // --- Helpers ---
     const filteredProducts = products.filter(p => {
         if (!p.ativo || p.tipo !== 'Principal') return false;
+        
+        // Critical: Only show products enabled for Touch
+        if (!p.disponivelTouch) return false;
+
         if (selectedGroupId !== 'ALL' && p.grupoProdutoId !== selectedGroupId) return false;
         return true;
     });

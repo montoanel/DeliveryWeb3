@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../services/mockDb';
 import { Produto, GrupoProduto, TipoProduto, SetorProducao } from '../types';
-import { Plus, Search, Edit2, Trash2, Save, X, Package, Copy, ArrowUpDown, Tag } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Save, X, Package, Copy, ArrowUpDown, Tag, MonitorPlay, Image as ImageIcon } from 'lucide-react';
 
 const Products: React.FC = () => {
   const [view, setView] = useState<'list' | 'form'>('list');
@@ -26,7 +26,9 @@ const Products: React.FC = () => {
     preco: 0,
     custo: 0,
     unidadeMedida: 'UN',
-    grupoProdutoId: 1
+    grupoProdutoId: 1,
+    disponivelTouch: false,
+    imagem: ''
   };
   const [formData, setFormData] = useState<Produto>(initialFormState);
 
@@ -283,7 +285,67 @@ const Products: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-4 border-t border-gray-100 pt-6">
+          {/* Touch Configuration Section */}
+          <div className="border-t border-gray-200 pt-6 mt-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <MonitorPlay size={20} className="text-purple-600"/> Configuração Touch / Totem
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                  <div>
+                      <div className="flex items-center gap-3 mb-4">
+                          <input 
+                            type="checkbox" 
+                            id="chkTouch"
+                            checked={formData.disponivelTouch || false}
+                            onChange={e => setFormData({...formData, disponivelTouch: e.target.checked})}
+                            className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300 cursor-pointer"
+                          />
+                          <label htmlFor="chkTouch" className="font-medium text-gray-700 cursor-pointer select-none">
+                              Disponível para venda no Módulo Touch?
+                          </label>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">URL da Imagem (Foto)</label>
+                          <input 
+                            type="text" 
+                            value={formData.imagem || ''}
+                            onChange={(e) => setFormData({...formData, imagem: e.target.value})}
+                            placeholder="https://exemplo.com/foto.jpg"
+                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Cole o link da imagem do produto.</p>
+                      </div>
+                  </div>
+
+                  {/* Image Preview */}
+                  <div className="flex flex-col items-center">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pré-visualização</label>
+                      <div className="w-48 h-32 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden flex items-center justify-center relative group">
+                          {formData.imagem ? (
+                              <>
+                                <img src={formData.imagem} alt="Preview" className="w-full h-full object-cover" />
+                                <button 
+                                    type="button"
+                                    onClick={() => setFormData({...formData, imagem: ''})}
+                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity font-bold"
+                                >
+                                    <Trash2 size={24} /> Remover
+                                </button>
+                              </>
+                          ) : (
+                              <div className="text-gray-400 flex flex-col items-center">
+                                  <ImageIcon size={32} />
+                                  <span className="text-xs mt-1">Sem Imagem</span>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <div className="flex justify-end gap-4 border-t border-gray-100 pt-6 mt-6">
             <button 
               type="button"
               onClick={() => setView('list')}
@@ -376,7 +438,7 @@ const Products: React.FC = () => {
                       <ArrowUpDown size={14} className={`text-gray-400 ${sortConfig?.key === 'grupo' ? 'text-blue-600' : 'opacity-0 group-hover:opacity-100'}`} />
                   </div>
               </th>
-               <th className="p-4 font-semibold text-gray-600 text-sm">Setor</th>
+               <th className="p-4 font-semibold text-gray-600 text-sm">Touch</th>
               <th 
                   className="p-4 font-semibold text-gray-600 text-sm cursor-pointer hover:bg-gray-100 group select-none"
                   onClick={() => handleSort('tipo')}
@@ -414,7 +476,13 @@ const Products: React.FC = () => {
                 </td>
                 <td className="p-4 font-medium text-gray-800">{product.nome}</td>
                 <td className="p-4 text-sm text-gray-600">{groupName}</td>
-                <td className="p-4 text-sm text-gray-500">{product.setor || 'Cozinha'}</td>
+                <td className="p-4 text-center">
+                    {product.disponivelTouch ? (
+                        <MonitorPlay size={16} className="text-purple-600 mx-auto" title="Disponível no Touch" />
+                    ) : (
+                        <span className="text-gray-300">-</span>
+                    )}
+                </td>
                 <td className="p-4">
                     <span className={`text-xs px-2 py-0.5 rounded border ${product.tipo === 'Principal' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
                         {product.tipo}
