@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp, MonitorPlay, Tablet } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp, MonitorPlay, Tablet, Smartphone } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
 import TouchSales from './components/TouchSales';
 import TouchKiosk from './components/TouchKiosk';
+import CustomerApp from './components/CustomerApp';
 import CashControl from './components/CashControl';
 import Products from './components/Products';
 import ProductGroups from './components/ProductGroups';
@@ -73,6 +74,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
              {sidebarOpen && <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Módulos Touch</h3>}
              <SidebarLink to="/touch-vendas" icon={Tablet} label={sidebarOpen ? "Touch Vendas (Garçom)" : ""} />
              <SidebarLink to="/touch-kiosk" icon={MonitorPlay} label={sidebarOpen ? "Autoatendimento (Totem)" : ""} />
+             <SidebarLink to="/app" icon={Smartphone} label={sidebarOpen ? "Web App (Cliente)" : ""} />
           </div>
 
           <SidebarLink to="/caixa" icon={DollarSign} label={sidebarOpen ? "Gestão de Caixa" : ""} />
@@ -110,7 +112,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                <LogOut size={20} />
                {sidebarOpen && <span className="font-medium">Sair do Sistema</span>}
             </button>
-            {sidebarOpen && <p className="text-xs text-gray-400 text-center mt-4">Version 1.1 (Touch Updates)</p>}
+            {sidebarOpen && <p className="text-xs text-gray-400 text-center mt-4">Version 1.2 (Customer App)</p>}
         </div>
       </aside>
 
@@ -150,39 +152,53 @@ const App: React.FC = () => {
     setUser(null);
   };
 
-  if (!user) {
+  // Special Route for Customer App (No Auth Required for demo flow inside app, or self-contained)
+  // We check path before rendering Login
+  const isCustomerApp = window.location.hash.includes('/app');
+
+  if (!user && !isCustomerApp) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
     <HashRouter>
-      <Layout user={user} onLogout={handleLogout}>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/vendas" element={<POS user={user} />} />
-          
-          <Route path="/touch-vendas" element={<TouchSales user={user} />} /> 
-          <Route path="/touch-kiosk" element={<TouchKiosk user={user} />} /> 
-          
-          <Route path="/caixa" element={<CashControl user={user} />} />
-          <Route path="/cozinha" element={<Kitchen />} />
-          <Route path="/tesouraria" element={<Treasury />} />
-          <Route path="/contas-pagar" element={<BillsToPay />} />
-          <Route path="/contas-receber" element={<AccountsReceivable />} />
-          <Route path="/fornecedores" element={<Suppliers />} />
-          
-          <Route path="/produtos" element={<Products />} />
-          <Route path="/grupos" element={<ProductGroups />} />
-          <Route path="/config-adicionais" element={<AddonConfig />} />
-          <Route path="/clientes" element={<Clients />} />
-          <Route path="/bairros" element={<Neighborhoods />} />
-          <Route path="/formas-pagamento" element={<PaymentMethods />} />
-          <Route path="/config-financeira" element={<FinanceConfig />} />
-          <Route path="/terminais" element={<Terminals />} />
-          <Route path="/usuarios" element={<UsersComponent />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
+      <Routes>
+        {/* Public/Customer Route - OUTSIDE Layout */}
+        <Route path="/app" element={<CustomerApp />} />
+
+        {/* Admin Routes - INSIDE Layout */}
+        <Route path="/*" element={
+            user ? (
+              <Layout user={user} onLogout={handleLogout}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/vendas" element={<POS user={user} />} />
+                  
+                  <Route path="/touch-vendas" element={<TouchSales user={user} />} /> 
+                  <Route path="/touch-kiosk" element={<TouchKiosk user={user} />} /> 
+                  
+                  <Route path="/caixa" element={<CashControl user={user} />} />
+                  <Route path="/cozinha" element={<Kitchen />} />
+                  <Route path="/tesouraria" element={<Treasury />} />
+                  <Route path="/contas-pagar" element={<BillsToPay />} />
+                  <Route path="/contas-receber" element={<AccountsReceivable />} />
+                  <Route path="/fornecedores" element={<Suppliers />} />
+                  
+                  <Route path="/produtos" element={<Products />} />
+                  <Route path="/grupos" element={<ProductGroups />} />
+                  <Route path="/config-adicionais" element={<AddonConfig />} />
+                  <Route path="/clientes" element={<Clients />} />
+                  <Route path="/bairros" element={<Neighborhoods />} />
+                  <Route path="/formas-pagamento" element={<PaymentMethods />} />
+                  <Route path="/config-financeira" element={<FinanceConfig />} />
+                  <Route path="/terminais" element={<Terminals />} />
+                  <Route path="/usuarios" element={<UsersComponent />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Layout>
+            ) : <Navigate to="/" replace />
+        } />
+      </Routes>
     </HashRouter>
   );
 };
