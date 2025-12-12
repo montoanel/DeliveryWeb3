@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/mockDb';
 import { 
   Produto, GrupoProduto, Pedido, PedidoItem, 
@@ -9,11 +9,77 @@ import {
 import { 
   ShoppingCart, Minus, Plus, X, ChevronRight, 
   MapPin, User, Phone, CheckCircle, Store, Truck, Utensils, 
-  ArrowLeft, Banknote, CreditCard
+  ArrowLeft, Banknote, CreditCard, Clock, Map, Navigation, AlertCircle, FileText
 } from 'lucide-react';
 
 // --- Types for Local State ---
-type AppView = 'LOGIN' | 'SERVICE_SELECT' | 'MENU' | 'CART' | 'SUCCESS';
+type AppView = 'LOGIN' | 'SERVICE_SELECT' | 'MENU' | 'CART' | 'WAITING_ACCEPTANCE' | 'TRACKING';
+
+// --- Map Simulation Component ---
+const TrackingMap = ({ order, status }: { order: Pedido, status: StatusCozinha }) => {
+    // This is a visual simulation since we can't use Google Maps API easily without a key.
+    // Logic: Store is at 10%, 10%. Client is at 90%, 90%.
+    // Motoboy position interpolates based on status.
+    
+    const getMotoboyPosition = () => {
+        if (status === StatusCozinha.Aguardando || status === StatusCozinha.Preparando) {
+            return { top: '10%', left: '10%' }; // At store
+        }
+        if (status === StatusCozinha.Pronto) {
+            return { top: '20%', left: '20%' }; // Just leaving
+        }
+        if (status === StatusCozinha.Entregue) {
+            return { top: '85%', left: '85%' }; // Arrived (Visual approximation)
+        }
+        // Simulation of movement for "Entregue/Saindo" could be random or time based
+        // For static demo:
+        return { top: '50%', left: '50%' }; 
+    };
+
+    const motoboyPos = getMotoboyPosition();
+
+    return (
+        <div className="w-full h-64 bg-gray-200 rounded-xl relative overflow-hidden border-4 border-white shadow-lg">
+            {/* Background Grid (Simulating Streets) */}
+            <div className="absolute inset-0 opacity-20" style={{
+                backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
+                backgroundSize: '20px 20px'
+            }}></div>
+            
+            {/* Store Marker */}
+            <div className="absolute top-[10%] left-[10%] flex flex-col items-center -translate-x-1/2 -translate-y-1/2 z-10">
+                <div className="bg-blue-600 p-2 rounded-full text-white shadow-lg">
+                    <Store size={20} />
+                </div>
+                <span className="text-[10px] font-bold bg-white px-1 rounded mt-1 shadow">Loja</span>
+            </div>
+
+            {/* Client Marker */}
+            <div className="absolute top-[90%] left-[90%] flex flex-col items-center -translate-x-1/2 -translate-y-1/2 z-10">
+                <div className="bg-green-600 p-2 rounded-full text-white shadow-lg">
+                    <User size={20} />
+                </div>
+                <span className="text-[10px] font-bold bg-white px-1 rounded mt-1 shadow">Você</span>
+            </div>
+
+            {/* Path Line (Dashed) */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <line x1="10%" y1="10%" x2="90%" y2="90%" stroke="#3b82f6" strokeWidth="2" strokeDasharray="5,5" />
+            </svg>
+
+            {/* Motoboy Marker (Moving) */}
+            <div 
+                className="absolute transition-all duration-[2000ms] ease-in-out z-20 flex flex-col items-center -translate-x-1/2 -translate-y-1/2"
+                style={motoboyPos}
+            >
+                <div className="bg-orange-500 p-2 rounded-full text-white shadow-xl animate-bounce">
+                    <Truck size={24} />
+                </div>
+                <span className="text-[10px] font-bold bg-white px-1 rounded mt-1 shadow text-orange-600">Entregador</span>
+            </div>
+        </div>
+    );
+};
 
 const CustomerApp: React.FC = () => {
     // --- Data Sources ---
@@ -37,7 +103,9 @@ const CustomerApp: React.FC = () => {
         bairroId: 0,
         endereco: '',
         numero: '',
-        complemento: ''
+        complemento: '',
+        latitude: 0,
+        longitude: 0
     });
     const [selectedPaymentId, setSelectedPaymentId] = useState<number | null>(null);
     const [changeFor, setChangeFor] = useState('');
@@ -51,8 +119,10 @@ const CustomerApp: React.FC = () => {
     const [loginName, setLoginName] = useState('');
     const [loginPhone, setLoginPhone] = useState('');
 
-    // --- Final Order Data ---
-    const [lastOrder, setLastOrder] = useState<Pedido | null>(null);
+    // --- Tracking State ---
+    const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
+    const [trackedOrder, setTrackedOrder] = useState<Pedido | null>(null);
+    const [showAcceptanceModal, setShowAcceptanceModal] = useState(false);
 
     useEffect(() => {
         setProducts(db.getProdutos());
@@ -60,7 +130,43 @@ const CustomerApp: React.FC = () => {
         setAddonConfigs(db.getConfiguracoesAdicionais());
         setBairros(db.getBairros());
         setPaymentMethods(db.getFormasPagamento().filter(p => p.ativo));
+        
+        // Try get geolocation on load
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    setDeliveryAddress(prev => ({...prev, latitude: pos.coords.latitude, longitude: pos.coords.longitude}));
+                },
+                (err) => console.log("Geo access denied or failed", err)
+            );
+        }
     }, []);
+
+    // Polling for Order Status
+    useEffect(() => {
+        let interval: any;
+        if ((view === 'WAITING_ACCEPTANCE' || view === 'TRACKING') && activeOrderId) {
+            interval = setInterval(() => {
+                const order = db.getPedidoById(activeOrderId);
+                if (order) {
+                    setTrackedOrder(order);
+                    
+                    // Logic: Transition from Waiting to Tracking Flow
+                    if (view === 'WAITING_ACCEPTANCE') {
+                        if (order.status === PedidoStatus.Cancelado) {
+                            alert("Seu pedido foi recusado pela loja. Por favor, entre em contato.");
+                            setView('MENU');
+                            setActiveOrderId(null);
+                        } else if (order.status !== PedidoStatus.AguardandoAprovacao) {
+                            // Accepted!
+                            setShowAcceptanceModal(true);
+                        }
+                    }
+                }
+            }, 3000);
+        }
+        return () => clearInterval(interval);
+    }, [view, activeOrderId]);
 
     // --- Helpers ---
     const getCartTotal = () => {
@@ -85,24 +191,22 @@ const CustomerApp: React.FC = () => {
         e.preventDefault();
         if (!loginName || !loginPhone) return alert("Preencha todos os campos.");
 
-        // Check if user exists by phone
         const existingClient = db.getClientes().find(c => c.telefone === loginPhone);
         
         if (existingClient) {
             setCurrentUser(existingClient);
-            // Pre-fill address if exists
             if (existingClient.bairroId) {
-                setDeliveryAddress({
-                    bairroId: existingClient.bairroId,
+                setDeliveryAddress(prev => ({
+                    ...prev,
+                    bairroId: existingClient.bairroId!,
                     endereco: existingClient.endereco,
                     numero: existingClient.numero,
                     complemento: existingClient.complemento
-                });
+                }));
             }
         } else {
-            // Create new temporary client object (saved to DB only on order or explicitly)
             const newClient: Cliente = {
-                id: 0, // Will be assigned by DB logic
+                id: 0, 
                 nome: loginName,
                 telefone: loginPhone,
                 tipoPessoa: 'Física',
@@ -115,7 +219,6 @@ const CustomerApp: React.FC = () => {
                 cidade: ''
             };
             db.saveCliente(newClient);
-            // Re-fetch to get the ID
             const saved = db.getClientes().find(c => c.telefone === loginPhone);
             setCurrentUser(saved || newClient);
         }
@@ -128,7 +231,6 @@ const CustomerApp: React.FC = () => {
             setItemModal({ product, config });
             setAddonQuantities({});
         } else {
-            // Direct Add
             addToCart(product, 1);
         }
     };
@@ -179,7 +281,7 @@ const CustomerApp: React.FC = () => {
 
         if (!selectedPaymentId) return alert("Selecione a forma de pagamento.");
 
-        // Update Client Address in DB if Delivery
+        // Update Client Address
         if (serviceType === TipoAtendimento.Delivery) {
             const bairro = bairros.find(b => b.id === deliveryAddress.bairroId);
             const updatedClient = {
@@ -188,17 +290,17 @@ const CustomerApp: React.FC = () => {
                 numero: deliveryAddress.numero,
                 complemento: deliveryAddress.complemento,
                 bairroId: deliveryAddress.bairroId,
-                bairro: bairro?.nome || ''
+                bairro: bairro?.nome || '',
+                latitude: deliveryAddress.latitude,
+                longitude: deliveryAddress.longitude
             };
             db.saveCliente(updatedClient);
         }
 
-        // Create Order
         const orderId = Math.floor(Math.random() * 100000) + 1000;
         const total = getCartTotal();
         const method = paymentMethods.find(p => p.id === selectedPaymentId);
 
-        // Add Fee Item if Delivery
         const finalItems = [...cart];
         if (serviceType === TipoAtendimento.Delivery && deliveryAddress.bairroId) {
             const bairro = bairros.find(b => b.id === deliveryAddress.bairroId);
@@ -229,17 +331,23 @@ const CustomerApp: React.FC = () => {
             clienteId: currentUser.id,
             clienteNome: currentUser.nome,
             total: total,
-            status: PedidoStatus.Pendente,
+            status: PedidoStatus.AguardandoAprovacao, // IMPORTANT: New initial status
             statusCozinha: StatusCozinha.Aguardando,
             itens: finalItems,
-            pagamentos: [], // Payment will be registered by cashier later
+            pagamentos: [],
             deliveryPagamentoMetodo: method?.nome,
-            deliveryTrocoPara: changeFor ? parseFloat(changeFor) : undefined
+            deliveryTrocoPara: changeFor ? parseFloat(changeFor) : undefined,
+            enderecoEntrega: serviceType === 'Delivery' ? {
+                logradouro: `${deliveryAddress.endereco}, ${deliveryAddress.numero}`,
+                latitude: deliveryAddress.latitude,
+                longitude: deliveryAddress.longitude
+            } : undefined
         };
 
         db.savePedido(pedido);
-        setLastOrder(pedido);
-        setView('SUCCESS');
+        setActiveOrderId(orderId);
+        setTrackedOrder(pedido);
+        setView('WAITING_ACCEPTANCE');
     };
 
     // --- VIEWS ---
@@ -252,39 +360,16 @@ const CustomerApp: React.FC = () => {
                 </div>
                 <h1 className="text-2xl font-bold text-gray-800 mb-2">Bem-vindo(a)!</h1>
                 <p className="text-gray-500 mb-8 text-center">Identifique-se para fazer seu pedido.</p>
-                
                 <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Seu Nome</label>
-                        <div className="relative">
-                            <User className="absolute left-3 top-3 text-gray-400" size={20}/>
-                            <input 
-                                type="text" 
-                                required
-                                value={loginName}
-                                onChange={e => setLoginName(e.target.value)}
-                                className="w-full pl-10 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                placeholder="Como podemos te chamar?"
-                            />
-                        </div>
+                        <div className="relative"><User className="absolute left-3 top-3 text-gray-400" size={20}/><input type="text" required value={loginName} onChange={e => setLoginName(e.target.value)} className="w-full pl-10 p-3 border border-gray-300 rounded-xl outline-none" placeholder="Seu nome..."/></div>
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Seu Celular (Whatsapp)</label>
-                        <div className="relative">
-                            <Phone className="absolute left-3 top-3 text-gray-400" size={20}/>
-                            <input 
-                                type="tel" 
-                                required
-                                value={loginPhone}
-                                onChange={e => setLoginPhone(e.target.value)}
-                                className="w-full pl-10 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                                placeholder="(00) 00000-0000"
-                            />
-                        </div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Seu Celular</label>
+                        <div className="relative"><Phone className="absolute left-3 top-3 text-gray-400" size={20}/><input type="tel" required value={loginPhone} onChange={e => setLoginPhone(e.target.value)} className="w-full pl-10 p-3 border border-gray-300 rounded-xl outline-none" placeholder="(00) 00000-0000"/></div>
                     </div>
-                    <button type="submit" className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-transform active:scale-95">
-                        Acessar Cardápio
-                    </button>
+                    <button type="submit" className="w-full py-4 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 active:scale-95 transition-transform">Acessar Cardápio</button>
                 </form>
             </div>
         );
@@ -295,80 +380,151 @@ const CustomerApp: React.FC = () => {
             <div className="min-h-screen bg-gray-50 p-6 flex flex-col justify-center">
                 <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Como deseja receber?</h2>
                 <div className="space-y-4 max-w-sm mx-auto w-full">
-                    <button 
-                        onClick={() => { setServiceType(TipoAtendimento.Delivery); setView('MENU'); }}
-                        className="w-full p-6 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-blue-500 flex items-center justify-between group transition-all"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                                <Truck size={24} />
-                            </div>
-                            <div className="text-left">
-                                <span className="block font-bold text-lg text-gray-800">Entrega</span>
-                                <span className="text-sm text-gray-500">Receba em casa</span>
-                            </div>
-                        </div>
-                        <ChevronRight className="text-gray-300 group-hover:text-blue-500"/>
+                    <button onClick={() => { setServiceType(TipoAtendimento.Delivery); setView('MENU'); }} className="w-full p-6 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-blue-500 flex items-center justify-between group">
+                        <div className="flex items-center gap-4"><div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600"><Truck size={24} /></div><div className="text-left"><span className="block font-bold text-lg text-gray-800">Entrega</span><span className="text-sm text-gray-500">Receba em casa</span></div></div><ChevronRight className="text-gray-300 group-hover:text-blue-500"/>
                     </button>
-
-                    <button 
-                        onClick={() => { setServiceType(TipoAtendimento.Retirada); setView('MENU'); }}
-                        className="w-full p-6 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-orange-500 flex items-center justify-between group transition-all"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600">
-                                <Store size={24} />
-                            </div>
-                            <div className="text-left">
-                                <span className="block font-bold text-lg text-gray-800">Retirada</span>
-                                <span className="text-sm text-gray-500">Busque no balcão</span>
-                            </div>
-                        </div>
-                        <ChevronRight className="text-gray-300 group-hover:text-orange-500"/>
+                    <button onClick={() => { setServiceType(TipoAtendimento.Retirada); setView('MENU'); }} className="w-full p-6 bg-white rounded-2xl shadow-sm border-2 border-transparent hover:border-orange-500 flex items-center justify-between group">
+                        <div className="flex items-center gap-4"><div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600"><Store size={24} /></div><div className="text-left"><span className="block font-bold text-lg text-gray-800">Retirada</span><span className="text-sm text-gray-500">Busque no balcão</span></div></div><ChevronRight className="text-gray-300 group-hover:text-orange-500"/>
                     </button>
                 </div>
             </div>
         );
     }
 
-    if (view === 'SUCCESS' && lastOrder) {
+    // --- WAITING & TRACKING VIEWS ---
+
+    if (view === 'WAITING_ACCEPTANCE' && trackedOrder) {
         return (
-            <div className="min-h-screen bg-green-600 flex flex-col items-center justify-center p-8 text-white text-center">
-                <div className="bg-white/20 p-6 rounded-full mb-6 animate-bounce">
-                    <CheckCircle size={64} />
-                </div>
-                <h1 className="text-3xl font-extrabold mb-2">Pedido Recebido!</h1>
-                <p className="text-lg opacity-90 mb-8">Seu pedido <b>#{lastOrder.id}</b> foi enviado para a loja e já está sendo processado.</p>
-                
-                <div className="bg-white/10 rounded-xl p-4 w-full max-w-sm text-left mb-8 backdrop-blur-sm">
-                    <p className="text-sm font-bold opacity-70 uppercase mb-2">Resumo</p>
-                    {lastOrder.itens.map((item, idx) => (
-                        <div key={idx} className="flex justify-between text-sm mb-1">
-                            <span>{item.quantidade}x {item.produto.nome}</span>
+            <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
+                {showAcceptanceModal && (
+                    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6 backdrop-blur-sm">
+                        <div className="bg-white rounded-2xl p-8 w-full max-w-sm animate-in zoom-in">
+                            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4"><CheckCircle size={32}/></div>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">Pedido Aceito!</h2>
+                            <p className="text-gray-500 mb-6">A loja confirmou seu pedido. Deseja acompanhar o preparo e a entrega em tempo real?</p>
+                            <div className="space-y-3">
+                                <button onClick={() => { setShowAcceptanceModal(false); setView('TRACKING'); }} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700">Sim, acompanhar agora</button>
+                                <button onClick={() => { setShowAcceptanceModal(false); setCart([]); setView('MENU'); }} className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200">Não, voltar ao início</button>
+                            </div>
                         </div>
-                    ))}
-                    <div className="border-t border-white/20 mt-2 pt-2 flex justify-between font-bold text-lg">
-                        <span>Total</span>
-                        <span>R$ {lastOrder.total.toFixed(2)}</span>
+                    </div>
+                )}
+
+                <div className="relative">
+                    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                        <Clock size={48} className="text-blue-600"/>
+                    </div>
+                    {/* Spinner Ring */}
+                    <div className="absolute inset-0 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                </div>
+                
+                <h1 className="text-2xl font-bold text-gray-800 mb-2">Aguardando Confirmação...</h1>
+                <p className="text-gray-500 mb-8 max-w-xs mx-auto">Enviamos seu pedido para a loja. Assim que eles aceitarem, você será notificado.</p>
+                
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 w-full max-w-sm">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-bold text-gray-400 uppercase">Pedido</span>
+                        <span className="text-sm font-bold text-gray-800">#{trackedOrder.id}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-gray-400 uppercase">Total</span>
+                        <span className="text-lg font-bold text-blue-600">R$ {trackedOrder.total.toFixed(2)}</span>
                     </div>
                 </div>
-
-                <button 
-                    onClick={() => {
-                        setCart([]);
-                        setLastOrder(null);
-                        setDeliveryAddress({ bairroId: 0, endereco: '', numero: '', complemento: '' });
-                        setView('MENU');
-                    }}
-                    className="w-full max-w-sm py-4 bg-white text-green-700 font-bold rounded-xl shadow-lg hover:bg-green-50 transition-colors"
-                >
-                    Fazer Novo Pedido
-                </button>
             </div>
         );
     }
 
-    // --- MENU VIEW ---
+    if (view === 'TRACKING' && trackedOrder) {
+        const steps = [
+            { status: StatusCozinha.Aguardando, label: 'Recebido', icon: FileText },
+            { status: StatusCozinha.Preparando, label: 'Preparando', icon: Utensils },
+            { status: StatusCozinha.Pronto, label: 'Pronto', icon: CheckCircle },
+            { status: StatusCozinha.Entregue, label: 'Saiu p/ Entrega', icon: Truck }
+        ];
+
+        // Find current step index
+        let currentStepIndex = 0;
+        if (trackedOrder.statusCozinha === StatusCozinha.Preparando) currentStepIndex = 1;
+        if (trackedOrder.statusCozinha === StatusCozinha.Pronto) currentStepIndex = 2;
+        if (trackedOrder.statusCozinha === StatusCozinha.Entregue) currentStepIndex = 3;
+
+        return (
+            <div className="min-h-screen bg-gray-50 flex flex-col">
+                {/* Header */}
+                <div className="bg-white p-4 shadow-sm flex items-center justify-between sticky top-0 z-20">
+                    <button onClick={() => { setCart([]); setView('MENU'); }} className="p-2 hover:bg-gray-100 rounded-full"><ArrowLeft size={24}/></button>
+                    <h2 className="font-bold text-lg text-gray-800">Acompanhar Pedido #{trackedOrder.id}</h2>
+                    <div className="w-10"></div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                    {/* Status Stepper */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div className="flex justify-between relative">
+                            {/* Progress Line */}
+                            <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 -translate-y-1/2 z-0"></div>
+                            <div 
+                                className="absolute top-1/2 left-0 h-1 bg-green-500 -translate-y-1/2 z-0 transition-all duration-1000"
+                                style={{ width: `${(currentStepIndex / (steps.length - 1)) * 100}%` }}
+                            ></div>
+
+                            {steps.map((step, idx) => {
+                                const isActive = idx <= currentStepIndex;
+                                const isCurrent = idx === currentStepIndex;
+                                return (
+                                    <div key={idx} className="relative z-10 flex flex-col items-center">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isActive ? 'bg-green-500 text-white shadow-lg scale-110' : 'bg-gray-200 text-gray-400'}`}>
+                                            <step.icon size={18} />
+                                        </div>
+                                        <span className={`text-[10px] mt-2 font-bold ${isCurrent ? 'text-green-600' : 'text-gray-400'}`}>{step.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-6 text-center">
+                            <p className="text-gray-500 text-sm">Status Atual:</p>
+                            <p className="text-xl font-bold text-gray-800 uppercase animate-pulse">{trackedOrder.statusCozinha}</p>
+                        </div>
+                    </div>
+
+                    {/* Live Map */}
+                    <div className="space-y-2">
+                        <h3 className="font-bold text-gray-700 flex items-center gap-2"><Map size={18}/> Localização em Tempo Real</h3>
+                        <TrackingMap order={trackedOrder} status={trackedOrder.statusCozinha} />
+                        {trackedOrder.statusCozinha === StatusCozinha.Entregue ? (
+                            <div className="bg-orange-100 text-orange-800 p-3 rounded-lg text-sm font-bold flex items-center gap-2">
+                                <AlertCircle size={16} /> O entregador está próximo!
+                            </div>
+                        ) : (
+                            <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm flex items-center gap-2">
+                                <Clock size={16} /> Previsão de entrega: 30-40 min
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Order Details */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="bg-gray-100 p-3 text-xs font-bold text-gray-500 uppercase">Resumo do Pedido</div>
+                        <div className="p-4 space-y-2">
+                            {trackedOrder.itens.map((item, idx) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                    <span className="text-gray-600">{item.quantidade}x {item.produto.nome}</span>
+                                    <span className="font-bold">R$ {((item.produto.preco * item.quantidade) + (item.adicionais?.reduce((a,b)=>a+b.precoCobrado*item.quantidade,0)||0)).toFixed(2)}</span>
+                                </div>
+                            ))}
+                            <div className="border-t border-gray-100 pt-2 mt-2 flex justify-between font-bold text-lg">
+                                <span>Total</span>
+                                <span>R$ {trackedOrder.total.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // --- MENU VIEW (Same as before but filtered) ---
     const filteredProducts = products.filter(p => {
         if (!p.ativo || !p.disponivelTouch || p.tipo !== 'Principal') return false;
         if (activeGroupId !== 'ALL' && p.grupoProdutoId !== activeGroupId) return false;
@@ -596,6 +752,13 @@ const CustomerApp: React.FC = () => {
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Complemento</label>
                                     <input type="text" value={deliveryAddress.complemento} onChange={e => setDeliveryAddress({...deliveryAddress, complemento: e.target.value})} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="Apto 101..."/>
                                 </div>
+                                <div className="flex gap-2 items-center text-xs text-gray-500 mt-2">
+                                    <Navigation size={12} />
+                                    <span>
+                                        Localização: {deliveryAddress.latitude ? 'Detectada' : 'Não detectada'} 
+                                        ({deliveryAddress.latitude.toFixed(4)}, {deliveryAddress.longitude.toFixed(4)})
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -651,7 +814,7 @@ const CustomerApp: React.FC = () => {
                         onClick={handlePlaceOrder}
                         className="w-full py-4 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-colors"
                     >
-                        Enviar Pedido via WhatsApp / Sistema
+                        Enviar Pedido
                     </button>
                 </div>
             </div>

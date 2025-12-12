@@ -19,6 +19,7 @@ export enum TipoOperacaoCaixa {
 }
 
 export enum PedidoStatus {
+  AguardandoAprovacao = 'Aguardando Aprovação', // Novo status inicial para Web App
   Pendente = 'Pendente', // Aberto ou Parcialmente Pago
   Pago = 'Pago',
   Entregue = 'Entregue',
@@ -29,7 +30,7 @@ export enum StatusCozinha {
   Aguardando = 'Aguardando',
   Preparando = 'Preparando',
   Pronto = 'Pronto',
-  Entregue = 'Entregue' // Sai da tela da cozinha
+  Entregue = 'Entregue' // Sai da tela da cozinha (Saiu p/ Entrega)
 }
 
 // Entities (Models)
@@ -56,6 +57,9 @@ export interface Cliente {
   bairroId?: number; // Link to Bairro entity
   cep?: string;
   cidade?: string;
+  // Geolocation
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface GrupoProduto {
@@ -248,6 +252,17 @@ export interface Pedido {
   // Delivery Specific Metadata (Not financial, just info)
   deliveryPagamentoMetodo?: string; 
   deliveryTrocoPara?: number;
+  
+  // Delivery Tracking
+  enderecoEntrega?: {
+      logradouro: string;
+      latitude?: number;
+      longitude?: number;
+  };
+  entregadorLocation?: { // Mocked current location of motoboy
+      latitude: number;
+      longitude: number;
+  };
 
   // Legacy fields kept optional for backward compatibility types, but logic moves to 'pagamentos'
   valorRecebido?: number; 
