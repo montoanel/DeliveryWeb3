@@ -241,7 +241,9 @@ export interface Pedido {
   itens: PedidoItem[];
   
   // Payment Details (Updated for Partial Payments)
-  pagamentos: Pagamento[]; 
+  pagamentos: Pagamento[];
+  
+  cpfNaNota?: string; // Novo campo para o módulo Totem
   
   // Legacy fields kept optional for backward compatibility types, but logic moves to 'pagamentos'
   valorRecebido?: number; 

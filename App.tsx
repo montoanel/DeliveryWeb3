@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp, MonitorPlay } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp, MonitorPlay, Tablet } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
-import TouchPOS from './components/TouchPOS'; // Import New Component
+import TouchSales from './components/TouchSales';
+import TouchKiosk from './components/TouchKiosk';
 import CashControl from './components/CashControl';
 import Products from './components/Products';
 import ProductGroups from './components/ProductGroups';
@@ -67,7 +68,13 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <SidebarLink to="/" icon={LayoutDashboard} label={sidebarOpen ? "Dashboard" : ""} />
           <SidebarLink to="/vendas" icon={ShoppingCart} label={sidebarOpen ? "PDV / Vendas" : ""} />
-          <SidebarLink to="/touch" icon={MonitorPlay} label={sidebarOpen ? "PDV Touch / Totem" : ""} />
+          
+          <div className="pt-4 mt-4 border-t border-gray-100">
+             {sidebarOpen && <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Módulos Touch</h3>}
+             <SidebarLink to="/touch-vendas" icon={Tablet} label={sidebarOpen ? "Touch Vendas (Garçom)" : ""} />
+             <SidebarLink to="/touch-kiosk" icon={MonitorPlay} label={sidebarOpen ? "Autoatendimento (Totem)" : ""} />
+          </div>
+
           <SidebarLink to="/caixa" icon={DollarSign} label={sidebarOpen ? "Gestão de Caixa" : ""} />
           <SidebarLink to="/cozinha" icon={ChefHat} label={sidebarOpen ? "KDS / Cozinha" : ""} />
           
@@ -103,7 +110,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
                <LogOut size={20} />
                {sidebarOpen && <span className="font-medium">Sair do Sistema</span>}
             </button>
-            {sidebarOpen && <p className="text-xs text-gray-400 text-center mt-4">Version 1.0 (React Migration)</p>}
+            {sidebarOpen && <p className="text-xs text-gray-400 text-center mt-4">Version 1.1 (Touch Updates)</p>}
         </div>
       </aside>
 
@@ -153,7 +160,10 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/vendas" element={<POS user={user} />} />
-          <Route path="/touch" element={<TouchPOS user={user} />} /> 
+          
+          <Route path="/touch-vendas" element={<TouchSales user={user} />} /> 
+          <Route path="/touch-kiosk" element={<TouchKiosk user={user} />} /> 
+          
           <Route path="/caixa" element={<CashControl user={user} />} />
           <Route path="/cozinha" element={<Kitchen />} />
           <Route path="/tesouraria" element={<Treasury />} />
