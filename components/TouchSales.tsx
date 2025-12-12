@@ -1,35 +1,101 @@
-
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { db } from '../services/mockDb';
 import { 
   Produto, GrupoProduto, Pedido, PedidoItem, 
   PedidoItemAdicional, ConfiguracaoAdicional, FormaPagamento,
-  TipoAtendimento, PedidoStatus, StatusCozinha, Pagamento, Usuario, Cliente 
+  TipoAtendimento, PedidoStatus, StatusCozinha, Pagamento, Usuario, Cliente, Bairro 
 } from '../types';
 import { 
   Search, ShoppingCart, Minus, Plus, Trash2, X, 
   ChevronRight, CreditCard, User, CheckCircle, ArrowLeft,
-  Image as ImageIcon, Utensils, Truck, ShoppingBag, Zap, UserPlus
+  Image as ImageIcon, Utensils, Truck, ShoppingBag, Zap, UserPlus, Calculator, Banknote, Coins
 } from 'lucide-react';
+
+// --- Internal Component: Printable Receipt (Shared Logic with POS mostly) ---
+const TouchReceipt = ({ data }: { data: any }) => {
+    if (!data) return null;
+    return createPortal(
+        <div className="fixed inset-0 bg-white z-[9999] p-4 text-black font-mono text-sm leading-tight flex flex-col items-center justify-center">
+            <style>{`@media print { #root { display: none !important; } .touch-print { display: block !important; width: 80mm; margin: 0 auto; } } @media screen { .touch-print { display: none; } }`}</style>
+            <div className="touch-print">
+                <div className="text-center border-b border-dashed border-black pb-2 mb-2">
+                    <h1 className="text-xl font-bold uppercase">DeliverySys</h1>
+                    <p className="text-xs">{new Date().toLocaleString()}</p>
+                    <h2 className="text-lg font-bold mt-2">PEDIDO #{data.orderId}</h2>
+                    <p className="font-bold">{data.type.toUpperCase()}</p>
+                </div>
+                
+                <div className="mb-2 border-b border-dashed border-black pb-2">
+                    <p><b>Cliente:</b> {data.clientName}</p>
+                    {data.clientAddress && <p className="text-xs">{data.clientAddress}</p>}
+                </div>
+
+                <table className="w-full text-left mb-2">
+                    <tbody>
+                    {data.items.map((item: any, idx: number) => (
+                        <tr key={idx} className="align-top">
+                            <td className="w-8 font-bold">{item.quantidade}x</td>
+                            <td>
+                                {item.produto.nome}
+                                {item.adicionais?.map((add:any, i:number) => (
+                                    <div key={i} className="text-xs ml-2">+ {add.nome}</div>
+                                ))}
+                            </td>
+                            <td className="text-right">
+                                {((item.produto.preco * item.quantidade) + (item.adicionais?.reduce((a:number,b:any)=>a+b.precoCobrado*item.quantidade,0)||0)).toFixed(2)}
+                            </td>
+                        </tr>
+                    ))}
+                    </tbody>
+                </table>
+
+                <div className="border-t border-dashed border-black pt-2 mb-2">
+                    <div className="flex justify-between font-bold text-lg">
+                        <span>TOTAL</span>
+                        <span>R$ {data.total.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div className="mb-4">
+                    <p className="font-bold text-xs uppercase mb-1">Pagamento / Troco</p>
+                    {data.payments.map((p: any, i: number) => (
+                        <div key={i} className="flex justify-between text-xs">
+                            <span>{p.methodName}</span>
+                            <span>R$ {p.value.toFixed(2)}</span>
+                        </div>
+                    ))}
+                    {data.change > 0 && (
+                        <div className="flex justify-between text-xs font-bold mt-1">
+                            <span>TROCO A LEVAR:</span>
+                            <span>R$ {data.change.toFixed(2)}</span>
+                        </div>
+                    )}
+                </div>
+
+                <p className="text-center text-xs mt-4">Obrigado pela preferência!</p>
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 interface TouchSalesProps {
     user: Usuario;
 }
 
-// Módulo 1: Touch Vendas (Para Operador/Garçom)
-// Características: Seleção de Tipo de Venda, Seleção de Cliente
 const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
     // --- Data ---
     const [products, setProducts] = useState<Produto[]>([]);
     const [groups, setGroups] = useState<GrupoProduto[]>([]);
     const [clients, setClients] = useState<Cliente[]>([]);
+    const [bairros, setBairros] = useState<Bairro[]>([]);
     const [addonConfigs, setAddonConfigs] = useState<ConfiguracaoAdicional[]>([]);
     const [paymentMethods, setPaymentMethods] = useState<FormaPagamento[]>([]);
 
     // --- UI State ---
     const [selectedGroupId, setSelectedGroupId] = useState<number | 'ALL'>('ALL');
     const [cart, setCart] = useState<PedidoItem[]>([]);
-    const [isCartOpen, setIsCartOpen] = useState(false);
     
     // Header States
     const [orderType, setOrderType] = useState<TipoAtendimento>(TipoAtendimento.VendaRapida);
@@ -41,26 +107,37 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
     
     const [checkoutStep, setCheckoutStep] = useState<'NONE' | 'CLIENT_SEARCH' | 'PAYMENT' | 'SUCCESS'>('NONE');
     const [clientSearchTerm, setClientSearchTerm] = useState('');
-    const [processingPayment, setProcessingPayment] = useState(false);
+    
+    // Payment Logic State
+    const [currentPayments, setCurrentPayments] = useState<{methodId: number, methodName: string, value: number}[]>([]);
+    const [numpadValue, setNumpadValue] = useState('');
+    const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
+    const [changeAmount, setChangeAmount] = useState(0); // Troco calculado
+    const [printData, setPrintData] = useState<any>(null);
 
     useEffect(() => {
         setProducts(db.getProdutos());
         setGroups(db.getGrupos());
         setClients(db.getClientes());
+        setBairros(db.getBairros());
         setAddonConfigs(db.getConfiguracoesAdicionais());
         setPaymentMethods(db.getFormasPagamento().filter(p => p.ativo));
     }, []);
 
+    // Print Effect
+    useEffect(() => {
+        if (printData) {
+            setTimeout(() => {
+                window.print();
+                setPrintData(null);
+            }, 500);
+        }
+    }, [printData]);
+
     // --- Helpers ---
     const filteredProducts = products.filter(p => {
         if (!p.ativo || p.tipo !== 'Principal') return false;
-        // Show Touch-enabled products AND all others? 
-        // For "Staff Touch", usually we show all or maybe just touch ones. 
-        // The prompt says "duplicar o atendimento touch", implying visual style.
-        // Let's adhere to "disponivelTouch" for visual consistency, or show all if needed.
-        // For now, using touch flag to keep the grid clean.
         if (!p.disponivelTouch) return false;
-
         if (selectedGroupId !== 'ALL' && p.grupoProdutoId !== selectedGroupId) return false;
         return true;
     });
@@ -78,6 +155,9 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
         }
         return acc + itemTotal;
     }, 0);
+
+    const totalPaid = currentPayments.reduce((acc, p) => acc + p.value, 0);
+    const remaining = Math.max(0, cartTotal - totalPaid);
 
     // --- Actions ---
 
@@ -107,7 +187,6 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
     const handleConfirmAddons = () => {
         if (!addonModalData) return;
         const { product, config } = addonModalData;
-        
         const finalAddons: PedidoItemAdicional[] = [];
         let standardCount = 0;
 
@@ -149,32 +228,126 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
         setCart(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleCheckout = async (methodId: number) => {
-        if (orderType === TipoAtendimento.Delivery && !selectedClient) {
-            alert("Para Delivery, é obrigatório selecionar um cliente.");
-            setCheckoutStep('CLIENT_SEARCH');
+    const handleSelectClient = (client: Cliente | null) => {
+        setSelectedClient(client);
+        setCheckoutStep('NONE');
+
+        // Logic for Automatic Delivery Fee
+        if (orderType === TipoAtendimento.Delivery && client && client.bairroId) {
+            const bairro = bairros.find(b => b.id === client.bairroId);
+            
+            // Remove previous TAXA if exists
+            let newCart = cart.filter(item => item.produto.codigoInterno !== 'TAXA');
+
+            if (bairro && bairro.taxaEntrega > 0) {
+                const feeProduct: Produto = {
+                    id: -999,
+                    ativo: true,
+                    tipo: 'Principal',
+                    setor: 'Nenhum',
+                    codigoInterno: 'TAXA',
+                    codigoBarras: '',
+                    nome: `Taxa de Entrega - ${bairro.nome}`,
+                    preco: bairro.taxaEntrega,
+                    custo: 0,
+                    unidadeMedida: 'SV',
+                    grupoProdutoId: 0,
+                    disponivelTouch: true
+                };
+                newCart.push({ produto: feeProduct, quantidade: 1 });
+                setCart(newCart);
+            }
+        } else if (!client) {
+            // If clearing client, remove tax
+             setCart(prev => prev.filter(item => item.produto.codigoInterno !== 'TAXA'));
+        }
+    };
+
+    // --- Payment Logic ---
+
+    const handleNumpadClick = (val: string) => {
+        if (val === 'back') {
+            setNumpadValue(prev => prev.slice(0, -1));
+        } else if (val === 'clear') {
+            setNumpadValue('');
+        } else {
+            setNumpadValue(prev => prev + val);
+        }
+    };
+
+    const handleAddPayment = () => {
+        if (!selectedMethodId) {
+            alert("Selecione a forma de pagamento.");
+            return;
+        }
+        
+        let value = parseFloat(numpadValue) / 100; // Assuming input is cents (like ATM) or handle decimal
+        // Better UX: If numpadValue has no decimals logic, let's treat it as direct float input or assume .00
+        // Simpler approach for this demo: Numpad types string, parse float.
+        value = parseFloat(numpadValue);
+
+        if (!numpadValue || isNaN(value) || value <= 0) {
+            // Auto-fill remaining if nothing typed
+            value = remaining;
+        }
+
+        const method = paymentMethods.find(m => m.id === selectedMethodId);
+        if (!method) return;
+
+        // Check if Cash and needs change
+        let paymentEntryValue = value;
+        let localChange = 0;
+
+        if (method.nome.toLowerCase().includes('dinheiro')) {
+            if (value > remaining) {
+                localChange = value - remaining;
+                paymentEntryValue = remaining; // Only register what covers the bill
+                setChangeAmount(localChange); // Store for display/print
+            }
+        } else {
+            if (value > (remaining + 0.01)) {
+                alert("Valor maior que o restante.");
+                return;
+            }
+        }
+
+        setCurrentPayments(prev => [...prev, {
+            methodId: method.id,
+            methodName: method.nome,
+            value: paymentEntryValue
+        }]);
+
+        setNumpadValue('');
+        setSelectedMethodId(null);
+    };
+
+    const handleRemovePayment = (idx: number) => {
+        setCurrentPayments(prev => prev.filter((_, i) => i !== idx));
+        setChangeAmount(0);
+    };
+
+    const handleFinalizeOrder = async () => {
+        // Validate
+        if (remaining > 0.01) {
+            alert("Ainda há valor pendente para pagar.");
             return;
         }
 
-        setProcessingPayment(true);
-        
         try {
             const sessao = db.getSessaoAberta(user.id);
             if (!sessao) throw new Error("Caixa Fechado. Abra o caixa no menu 'Gestão de Caixa'.");
 
-            const method = paymentMethods.find(m => m.id === methodId);
-            if (!method) throw new Error("Método inválido");
-
             const orderId = Math.floor(Math.random() * 100000) + 1000;
             const now = new Date().toISOString();
             
-            const paymentObj: Pagamento = {
+            // Map UI payments to DB objects
+            const finalPayments: Pagamento[] = currentPayments.map(p => ({
                 id: Math.random().toString(36).substr(2, 9),
                 data: now,
-                formaPagamentoId: method.id,
-                formaPagamentoNome: method.nome,
-                valor: cartTotal
-            };
+                formaPagamentoId: p.methodId,
+                formaPagamentoNome: p.methodName,
+                valor: p.value
+            }));
 
             const pedido: Pedido = {
                 id: orderId,
@@ -186,11 +359,32 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                 status: PedidoStatus.Pago,
                 statusCozinha: StatusCozinha.Aguardando,
                 itens: cart,
-                pagamentos: [paymentObj]
+                pagamentos: finalPayments
             };
 
             db.savePedido(pedido);
-            db.addPagamento(orderId, paymentObj, user.id, 0, cartTotal);
+            
+            // Register Cash Movements
+            finalPayments.forEach(pay => {
+                // Assuming change only happens on the last cash payment logic, 
+                // but here 'changeAmount' is global for the transaction.
+                // We'll just register the sale value. 
+                // If there was change, it physically happened outside the system record of "Sale Value".
+                // System records: Sale = 50 (Paid 100, Change 50 -> Sale is 50).
+                db.addPagamento(orderId, pay, user.id, 0, pay.valor);
+            });
+
+            // Trigger Print
+            setPrintData({
+                orderId,
+                type: orderType,
+                clientName: pedido.clienteNome,
+                clientAddress: selectedClient ? `${selectedClient.endereco}, ${selectedClient.numero} - ${selectedClient.bairro}` : '',
+                items: cart,
+                total: cartTotal,
+                payments: currentPayments,
+                change: changeAmount
+            });
 
             setCheckoutStep('SUCCESS');
             
@@ -198,13 +392,14 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                 setCart([]);
                 setSelectedClient(null);
                 setOrderType(TipoAtendimento.VendaRapida);
+                setCurrentPayments([]);
+                setChangeAmount(0);
+                setNumpadValue('');
                 setCheckoutStep('NONE');
-                setProcessingPayment(false);
-            }, 2000);
+            }, 3000);
 
         } catch (e: any) {
             alert("Erro: " + e.message);
-            setProcessingPayment(false);
         }
     };
 
@@ -212,6 +407,7 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
 
     return (
         <div className="flex h-[calc(100vh-4rem)] bg-gray-100 overflow-hidden font-sans select-none -m-8">
+            <TouchReceipt data={printData} />
             
             {/* LEFT: Categories & Grid */}
             <div className="flex-1 flex flex-col min-w-0">
@@ -225,7 +421,13 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                     ].map(t => (
                         <button
                             key={t.type}
-                            onClick={() => setOrderType(t.type)}
+                            onClick={() => {
+                                setOrderType(t.type);
+                                // If switching to delivery and client already selected, re-trigger fee logic
+                                if (t.type === TipoAtendimento.Delivery && selectedClient) {
+                                    handleSelectClient(selectedClient);
+                                }
+                            }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all border ${
                                 orderType === t.type 
                                 ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
@@ -370,6 +572,14 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                     <button 
                         onClick={() => {
                             if(cart.length === 0) return;
+                            if(orderType === TipoAtendimento.Delivery && !selectedClient) {
+                                alert("Selecione um cliente para Delivery.");
+                                setCheckoutStep('CLIENT_SEARCH');
+                                return;
+                            }
+                            setNumpadValue('');
+                            setCurrentPayments([]);
+                            setChangeAmount(0);
                             setCheckoutStep('PAYMENT');
                         }}
                         disabled={cart.length === 0}
@@ -386,7 +596,7 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
 
             {/* --- MODALS --- */}
 
-            {/* 1. Addon Modal (Same as TouchPOS) */}
+            {/* 1. Addon Modal (Same as before) */}
             {addonModalData && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in duration-200">
@@ -460,7 +670,7 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
                             {/* Option to create anonymous/new */}
                             <div 
-                                onClick={() => { setSelectedClient(null); setCheckoutStep('NONE'); }}
+                                onClick={() => handleSelectClient(null)}
                                 className="p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer flex items-center gap-4 transition-all"
                             >
                                 <div className="bg-gray-200 p-3 rounded-full text-gray-600"><UserPlus size={24}/></div>
@@ -473,7 +683,7 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                             {filteredClients.map(client => (
                                 <div 
                                     key={client.id}
-                                    onClick={() => { setSelectedClient(client); setCheckoutStep('NONE'); }}
+                                    onClick={() => handleSelectClient(client)}
                                     className="p-4 rounded-xl border-2 border-gray-100 hover:border-blue-500 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-all"
                                 >
                                     <div className="flex items-center gap-4">
@@ -501,37 +711,115 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                 </div>
             )}
 
-            {/* 3. Payment Modal */}
+            {/* 3. Payment Modal (ROBUST) */}
             {checkoutStep === 'PAYMENT' && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl p-8 animate-in zoom-in duration-200">
-                        <div className="flex items-center justify-between mb-8">
-                            <button onClick={() => setCheckoutStep('NONE')} className="text-gray-500 hover:text-gray-800 flex items-center gap-2 font-bold">
-                                <ArrowLeft /> Voltar
-                            </button>
-                            <h3 className="text-3xl font-bold text-gray-800">Pagamento</h3>
-                            <div className="w-20"></div> 
-                        </div>
+                    <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl p-0 flex h-[80vh] overflow-hidden animate-in zoom-in duration-200">
+                        {/* LEFT: Payment Methods & Numpad */}
+                        <div className="flex-1 p-6 flex flex-col border-r border-gray-200 bg-gray-50">
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-2xl font-bold text-gray-800">Pagamento</h3>
+                                <button onClick={() => setCheckoutStep('NONE')} className="text-gray-500 font-bold flex items-center gap-2"><ArrowLeft/> Voltar</button>
+                            </div>
 
-                        <div className="text-center mb-10">
-                            <p className="text-gray-500 uppercase font-bold text-sm">Valor Total</p>
-                            <p className="text-5xl font-extrabold text-blue-600 mt-2">R$ {cartTotal.toFixed(2)}</p>
-                        </div>
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                {paymentMethods.map(method => (
+                                    <button 
+                                        key={method.id} 
+                                        onClick={() => setSelectedMethodId(method.id)}
+                                        className={`p-4 rounded-xl border-2 font-bold text-lg flex flex-col items-center gap-2 transition-all ${selectedMethodId === method.id ? 'border-blue-600 bg-blue-100 text-blue-800' : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'}`}
+                                    >
+                                        <CreditCard size={24}/> {method.nome}
+                                    </button>
+                                ))}
+                            </div>
 
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                            {paymentMethods.map(method => (
-                                <button 
-                                    key={method.id}
-                                    onClick={() => handleCheckout(method.id)}
-                                    disabled={processingPayment}
-                                    className="p-6 rounded-xl border-2 border-gray-200 hover:border-blue-500 hover:bg-blue-50 transition-all flex flex-col items-center justify-center gap-3 group"
-                                >
-                                    <div className="bg-gray-100 p-4 rounded-full group-hover:bg-blue-200 text-blue-600 transition-colors">
-                                        <CreditCard size={32} />
+                            {/* Numpad Area */}
+                            <div className="flex-1 flex flex-col justify-end">
+                                <div className="mb-2 text-right">
+                                    <span className="text-sm text-gray-500 font-bold uppercase mr-2">Valor a Pagar:</span>
+                                    <div className="text-4xl font-mono font-bold bg-white border border-gray-300 rounded-lg p-3 text-right text-gray-800">
+                                        {numpadValue ? parseFloat(numpadValue).toFixed(2) : remaining.toFixed(2)}
                                     </div>
-                                    <span className="font-bold text-xl text-gray-700">{method.nome}</span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 h-64">
+                                    {[1,2,3,4,5,6,7,8,9,'.',0,'back'].map((key) => (
+                                        <button 
+                                            key={key}
+                                            onClick={() => handleNumpadClick(key.toString())}
+                                            className="bg-white border border-gray-300 rounded-xl text-2xl font-bold text-gray-700 shadow-sm active:bg-gray-200 flex items-center justify-center"
+                                        >
+                                            {key === 'back' ? <ArrowLeft/> : key}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="mt-4 grid grid-cols-2 gap-3">
+                                    <button onClick={() => { setNumpadValue(''); setSelectedMethodId(null); }} className="py-3 bg-gray-200 rounded-xl font-bold text-gray-700">Limpar</button>
+                                    <button onClick={handleAddPayment} disabled={!selectedMethodId} className={`py-3 rounded-xl font-bold text-white shadow-md ${selectedMethodId ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}>
+                                        Adicionar Pagamento
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT: Summary & Confirm */}
+                        <div className="w-[400px] p-6 flex flex-col bg-white">
+                            <div className="mb-6 pb-6 border-b border-gray-100">
+                                <p className="text-sm font-bold text-gray-500 uppercase">Total do Pedido</p>
+                                <p className="text-5xl font-extrabold text-blue-600">R$ {cartTotal.toFixed(2)}</p>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto mb-6">
+                                <p className="text-xs font-bold text-gray-400 uppercase mb-2">Pagamentos Adicionados</p>
+                                {currentPayments.length === 0 ? (
+                                    <div className="text-center text-gray-400 py-10 italic">Nenhum pagamento registrado</div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {currentPayments.map((p, idx) => (
+                                            <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                <div>
+                                                    <div className="font-bold text-gray-800">{p.methodName}</div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold">R$ {p.value.toFixed(2)}</span>
+                                                    <button onClick={() => handleRemovePayment(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={18}/></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-auto">
+                                <div className="space-y-2 mb-6">
+                                    <div className="flex justify-between text-lg">
+                                        <span className="text-gray-600">Pago</span>
+                                        <span className="font-bold text-green-600">R$ {totalPaid.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-lg border-t border-gray-100 pt-2">
+                                        <span className="text-gray-600">Restante</span>
+                                        <span className={`font-bold ${remaining === 0 ? 'text-gray-400' : 'text-red-600'}`}>R$ {remaining.toFixed(2)}</span>
+                                    </div>
+                                    {changeAmount > 0 && (
+                                        <div className="flex justify-between text-xl bg-yellow-50 p-2 rounded-lg border border-yellow-200 mt-2">
+                                            <span className="text-yellow-800 font-bold">TROCO</span>
+                                            <span className="font-bold text-yellow-800">R$ {changeAmount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <button 
+                                    onClick={handleFinalizeOrder}
+                                    disabled={remaining > 0.01}
+                                    className={`w-full py-4 rounded-xl font-bold text-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
+                                        remaining <= 0.01 
+                                        ? 'bg-blue-600 text-white hover:bg-blue-700 animate-pulse' 
+                                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    }`}
+                                >
+                                    <CheckCircle size={24}/> Finalizar Venda
                                 </button>
-                            ))}
+                            </div>
                         </div>
                     </div>
                 </div>
