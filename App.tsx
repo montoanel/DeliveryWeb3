@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, DollarSign, Menu, X, Store, Package, Users, Folder, CreditCard, Layers, UserCog, LogOut, User as UserIcon, Monitor, MapPin, Tag, ChefHat, Landmark, Truck, FileText, TrendingUp, MonitorPlay } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import POS from './components/POS';
+import TouchPOS from './components/TouchPOS'; // Import New Component
 import CashControl from './components/CashControl';
 import Products from './components/Products';
 import ProductGroups from './components/ProductGroups';
@@ -66,6 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <SidebarLink to="/" icon={LayoutDashboard} label={sidebarOpen ? "Dashboard" : ""} />
           <SidebarLink to="/vendas" icon={ShoppingCart} label={sidebarOpen ? "PDV / Vendas" : ""} />
+          <SidebarLink to="/touch" icon={MonitorPlay} label={sidebarOpen ? "PDV Touch / Totem" : ""} />
           <SidebarLink to="/caixa" icon={DollarSign} label={sidebarOpen ? "Gestão de Caixa" : ""} />
           <SidebarLink to="/cozinha" icon={ChefHat} label={sidebarOpen ? "KDS / Cozinha" : ""} />
           
@@ -151,6 +153,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/vendas" element={<POS user={user} />} />
+          <Route path="/touch" element={<TouchPOS user={user} />} /> 
           <Route path="/caixa" element={<CashControl user={user} />} />
           <Route path="/cozinha" element={<Kitchen />} />
           <Route path="/tesouraria" element={<Treasury />} />
