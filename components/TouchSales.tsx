@@ -494,16 +494,18 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
     const isCashSelected = selectedMethodId && paymentMethods.find(m => m.id === selectedMethodId)?.nome.toLowerCase().includes('dinheiro');
 
     return (
-        <div className="flex h-[calc(100vh-4rem)] bg-gray-100 overflow-hidden font-sans select-none -m-8">
+        // Main container uses viewport units relative to the available space to force fit
+        // -m-8 undoes the parent padding, w-[100vw] forces full width relative to viewport
+        <div className="flex h-[calc(100vh-4rem)] w-[calc(100vw-16rem)] -ml-8 -mt-8 -mb-8 overflow-hidden font-sans select-none bg-gray-100">
             <TouchReceipt data={printData} />
             
             {/* LEFT: Categories & Grid */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 h-full border-r border-gray-200">
                 
                 {/* Top Bar: Order Type Selector */}
-                <div className="bg-white border-b border-gray-200 px-6 py-3 flex gap-2 overflow-x-auto shadow-sm z-20">
+                <div className="bg-white border-b border-gray-200 px-4 py-2 flex gap-2 overflow-x-auto shadow-sm z-20 shrink-0">
                     {[
-                        { type: TipoAtendimento.VendaRapida, icon: Zap, label: 'Balcão / Rápida' },
+                        { type: TipoAtendimento.VendaRapida, icon: Zap, label: 'Balcão' },
                         { type: TipoAtendimento.Retirada, icon: ShoppingBag, label: 'Retirada' },
                         { type: TipoAtendimento.Delivery, icon: Truck, label: 'Delivery' }
                     ].map(t => (
@@ -515,69 +517,69 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                     handleSelectClient(selectedClient);
                                 }
                             }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all border ${
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap border ${
                                 orderType === t.type 
                                 ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
                                 : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                             }`}
                         >
-                            <t.icon size={18} /> {t.label}
+                            <t.icon size={16} /> {t.label}
                         </button>
                     ))}
                 </div>
 
                 {/* Categories */}
-                <div className="bg-white shadow-sm z-10">
-                    <div className="px-6 py-4 overflow-x-auto whitespace-nowrap flex gap-3 no-scrollbar">
+                <div className="bg-white shadow-sm z-10 shrink-0">
+                    <div className="px-4 py-2 overflow-x-auto whitespace-nowrap flex gap-2 no-scrollbar">
                         <button
                             onClick={() => setSelectedGroupId('ALL')}
-                            className={`px-5 py-3 rounded-xl font-bold text-sm transition-all shadow-sm flex flex-col items-center min-w-[80px] ${
+                            className={`px-4 py-2 rounded-lg font-bold text-xs transition-all shadow-sm flex flex-col items-center min-w-[70px] ${
                                 selectedGroupId === 'ALL' 
-                                ? 'bg-gray-800 text-white scale-105' 
+                                ? 'bg-gray-800 text-white' 
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                         >
-                            <Utensils size={20} className="mb-1" /> Todos
+                            <Utensils size={18} className="mb-1" /> Todos
                         </button>
                         {groups.filter(g => g.ativo).map(g => (
                             <button
                                 key={g.id}
                                 onClick={() => setSelectedGroupId(g.id)}
-                                className={`px-5 py-3 rounded-xl font-bold text-sm transition-all shadow-sm flex flex-col items-center min-w-[80px] ${
+                                className={`px-4 py-2 rounded-lg font-bold text-xs transition-all shadow-sm flex flex-col items-center min-w-[70px] ${
                                     selectedGroupId === g.id 
-                                    ? 'bg-gray-800 text-white scale-105' 
+                                    ? 'bg-gray-800 text-white' 
                                     : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                                 }`}
                             >
-                                <Utensils size={20} className="mb-1 opacity-50" /> {g.nome}
+                                <Utensils size={18} className="mb-1 opacity-50" /> {g.nome}
                             </button>
                         ))}
                     </div>
                 </div>
 
-                {/* Product Grid */}
-                <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {/* Product Grid - Responsive Grid Columns */}
+                <div className="flex-1 overflow-y-auto p-4 bg-gray-100">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 pb-20">
                         {filteredProducts.map(p => (
                             <div 
                                 key={p.id}
                                 onClick={() => handleProductClick(p)}
-                                className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer active:scale-95 transition-transform h-56"
+                                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col cursor-pointer active:scale-95 transition-transform h-48 sm:h-56"
                             >
-                                <div className="h-28 bg-gray-200 relative overflow-hidden">
+                                <div className="h-24 sm:h-28 bg-gray-200 relative overflow-hidden">
                                     {p.imagem ? (
                                         <img src={p.imagem} alt={p.nome} className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                            <ImageIcon size={32} />
+                                            <ImageIcon size={28} />
                                         </div>
                                     )}
-                                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur rounded-lg px-2 py-1 font-bold text-gray-800 shadow-sm text-xs">
+                                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur rounded px-1.5 py-0.5 font-bold text-gray-800 shadow-sm text-xs">
                                         R$ {p.preco.toFixed(2)}
                                     </div>
                                 </div>
-                                <div className="p-3 flex-1 flex flex-col justify-between">
-                                    <h3 className="font-bold text-gray-800 leading-tight text-sm line-clamp-2">{p.nome}</h3>
+                                <div className="p-2 flex-1 flex flex-col justify-between">
+                                    <h3 className="font-bold text-gray-800 leading-tight text-xs sm:text-sm line-clamp-2">{p.nome}</h3>
                                     <div className="mt-1 text-[10px] text-gray-500 line-clamp-1">{p.codigoInterno}</div>
                                 </div>
                             </div>
@@ -586,55 +588,55 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                 </div>
             </div>
 
-            {/* RIGHT: Cart & Client */}
-            <div className={`w-96 bg-white shadow-2xl border-l border-gray-200 flex flex-col z-20 transition-transform`}>
+            {/* RIGHT: Cart & Client - Adjusted Width for smaller screens */}
+            <div className={`w-80 lg:w-96 bg-white shadow-2xl flex flex-col z-20 transition-transform h-full shrink-0`}>
                 {/* Client Header */}
-                <div className="p-4 bg-gray-50 border-b border-gray-200">
+                <div className="p-3 bg-gray-50 border-b border-gray-200 shrink-0">
                     <div 
                         onClick={() => setCheckoutStep('CLIENT_SEARCH')}
-                        className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-colors ${selectedClient ? 'bg-blue-50 border-blue-200' : 'bg-white border-dashed border-gray-300 hover:border-gray-400'}`}
+                        className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${selectedClient ? 'bg-blue-50 border-blue-200' : 'bg-white border-dashed border-gray-300 hover:border-gray-400'}`}
                     >
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-full ${selectedClient ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                                <User size={20} />
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <div className={`p-1.5 rounded-full ${selectedClient ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                                <User size={16} />
                             </div>
                             <div className="overflow-hidden">
-                                <p className="text-xs font-bold text-gray-500 uppercase">Cliente</p>
-                                <p className="font-bold text-gray-800 truncate max-w-[150px]">
-                                    {selectedClient ? selectedClient.nome : 'Selecionar Cliente'}
+                                <p className="text-[10px] font-bold text-gray-500 uppercase">Cliente</p>
+                                <p className="font-bold text-gray-800 truncate text-sm">
+                                    {selectedClient ? selectedClient.nome : 'Selecionar'}
                                 </p>
                             </div>
                         </div>
-                        <ChevronRight size={16} className="text-gray-400"/>
+                        <ChevronRight size={14} className="text-gray-400"/>
                     </div>
                 </div>
 
-                <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white shadow-sm">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        <ShoppingCart className="text-blue-600" /> Pedido
+                <div className="p-3 border-b border-gray-200 flex justify-between items-center bg-white shadow-sm shrink-0">
+                    <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <ShoppingCart className="text-blue-600" size={20} /> Pedido
                     </h2>
                     <div className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold text-xs">
                         {cart.length} Itens
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
                     {cart.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-50">
-                            <ShoppingCart size={48} className="mb-4" />
-                            <p className="text-sm">Carrinho vazio</p>
+                            <ShoppingCart size={40} className="mb-2" />
+                            <p className="text-xs">Carrinho vazio</p>
                         </div>
                     ) : (
                         cart.map((item, idx) => (
-                            <div key={idx} className="flex gap-2 bg-white p-2 rounded-xl border border-gray-100 shadow-sm relative group">
-                                <div className="flex flex-col items-center justify-center gap-1 min-w-[2.5rem] bg-gray-50 rounded-lg">
-                                    <span className="font-bold text-base text-gray-800">{item.quantidade}</span>
+                            <div key={idx} className="flex gap-2 bg-white p-2 rounded-lg border border-gray-100 shadow-sm relative group">
+                                <div className="flex flex-col items-center justify-center gap-1 min-w-[2rem] bg-gray-50 rounded-md">
+                                    <span className="font-bold text-sm text-gray-800">{item.quantidade}</span>
                                 </div>
-                                <div className="flex-1">
-                                    <div className="font-bold text-gray-800 text-sm leading-tight">{item.produto.nome}</div>
-                                    <div className="text-blue-600 font-bold text-xs mt-1">R$ {(item.produto.preco * item.quantidade).toFixed(2)}</div>
+                                <div className="flex-1 overflow-hidden">
+                                    <div className="font-bold text-gray-800 text-xs leading-tight truncate">{item.produto.nome}</div>
+                                    <div className="text-blue-600 font-bold text-xs mt-0.5">R$ {(item.produto.preco * item.quantidade).toFixed(2)}</div>
                                     {item.adicionais && (
-                                        <div className="mt-1 space-y-0.5">
+                                        <div className="mt-0.5 space-y-0.5">
                                             {item.adicionais.map((add, i) => (
                                                 <div key={i} className="text-[10px] text-gray-500 bg-gray-50 px-1 rounded inline-block mr-1">
                                                     + {add.nome}
@@ -644,17 +646,17 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                     )}
                                 </div>
                                 <button onClick={() => handleRemoveItem(idx)} className="text-gray-300 hover:text-red-500 p-1 absolute top-1 right-1">
-                                    <Trash2 size={16} />
+                                    <Trash2 size={14} />
                                 </button>
                             </div>
                         ))
                     )}
                 </div>
 
-                <div className="p-4 bg-gray-50 border-t border-gray-200">
-                    <div className="flex justify-between items-end mb-4">
-                        <span className="text-gray-500 font-bold uppercase text-xs">Total a Pagar</span>
-                        <span className="text-3xl font-extrabold text-gray-900">R$ {cartTotal.toFixed(2)}</span>
+                <div className="p-3 bg-gray-50 border-t border-gray-200 shrink-0">
+                    <div className="flex justify-between items-end mb-3">
+                        <span className="text-gray-500 font-bold uppercase text-xs">Total</span>
+                        <span className="text-2xl font-extrabold text-gray-900">R$ {cartTotal.toFixed(2)}</span>
                     </div>
                     <button 
                         onClick={() => {
@@ -670,85 +672,88 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                             setCheckoutStep('PAYMENT');
                         }}
                         disabled={cart.length === 0}
-                        className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
+                        className={`w-full py-3 rounded-xl font-bold text-base shadow-lg transition-all flex items-center justify-center gap-2 ${
                             cart.length > 0 
                             ? 'bg-green-600 text-white hover:bg-green-700 active:scale-95' 
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                     >
-                        {isDelivery ? 'Avançar' : 'Pagamento'} <ChevronRight size={20} />
+                        {isDelivery ? 'Avançar' : 'Pagamento'} <ChevronRight size={18} />
                     </button>
                 </div>
             </div>
 
-            {/* ... Modals 1 & 2 (Addon & Client) ... */}
-            
+            {/* --- MODALS --- */}
+
             {/* 1. Addon Modal */}
             {addonModalData && (
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in duration-200">
-                        <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in duration-200">
+                        {/* Header */}
+                        <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-2xl">
                             <div>
-                                <h3 className="text-2xl font-bold text-gray-800">{addonModalData.product.nome}</h3>
-                                <p className="text-gray-500">Personalize seu pedido</p>
+                                <h3 className="text-lg font-bold text-gray-800">{addonModalData.product.nome}</h3>
+                                <p className="text-xs text-gray-500">Personalize seu pedido</p>
                             </div>
-                            <button onClick={() => setAddonModalData(null)} className="p-2 bg-gray-200 rounded-full hover:bg-gray-300">
-                                <X size={24} />
+                            <button onClick={() => setAddonModalData(null)} className="p-1.5 bg-gray-200 rounded-full hover:bg-gray-300">
+                                <X size={20} />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-6">
-                            <div className="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-xl text-blue-800 text-sm font-medium flex items-center gap-2">
-                                <CheckCircle size={18} /> 
-                                Regra: {addonModalData.config.cobrarApartirDe} itens Padrão GRÁTIS. Excedentes cobrados.
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-blue-800 text-xs font-medium flex items-center gap-2">
+                                <CheckCircle size={14} /> 
+                                Regra: {addonModalData.config.cobrarApartirDe} itens Padrão GRÁTIS.
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-3">
                                 {addonModalData.config.itens.map(rule => {
                                     const p = products.find(x => x.id === rule.produtoComplementoId);
                                     if(!p) return null;
                                     const qty = addonQuantities[p.id] || 0;
                                     return (
-                                        <div key={p.id} className={`p-4 rounded-xl border-2 transition-all select-none flex justify-between items-center ${qty > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
+                                        <div key={p.id} className={`p-3 rounded-lg border transition-all select-none flex justify-between items-center ${qty > 0 ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'}`}>
                                             <div>
-                                                <div className="font-bold text-gray-800 text-lg">{p.nome}</div>
-                                                <div className="text-sm text-gray-500">
+                                                <div className="font-bold text-gray-800 text-sm">{p.nome}</div>
+                                                <div className="text-xs text-gray-500">
                                                     {rule.cobrarSempre ? <span className="text-orange-600 font-bold">Premium +R$ {p.preco.toFixed(2)}</span> : `+R$ ${p.preco.toFixed(2)} (se exceder)`}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                <button onClick={() => setAddonQuantities(prev => ({...prev, [p.id]: Math.max(0, qty - 1)}))} className={`w-10 h-10 rounded-lg flex items-center justify-center ${qty > 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-300'}`}><Minus size={20} strokeWidth={3} /></button>
-                                                <span className="text-xl font-bold w-6 text-center">{qty}</span>
-                                                <button onClick={() => setAddonQuantities(prev => ({...prev, [p.id]: qty + 1}))} className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200"><Plus size={20} strokeWidth={3} /></button>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => setAddonQuantities(prev => ({...prev, [p.id]: Math.max(0, qty - 1)}))} className={`w-8 h-8 rounded flex items-center justify-center ${qty > 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-300'}`}><Minus size={16}/></button>
+                                                <span className="text-lg font-bold w-6 text-center">{qty}</span>
+                                                <button onClick={() => setAddonQuantities(prev => ({...prev, [p.id]: qty + 1}))} className="w-8 h-8 rounded bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200"><Plus size={16}/></button>
                                             </div>
                                         </div>
                                     )
                                 })}
                             </div>
                         </div>
-                        <div className="p-6 border-t border-gray-200">
-                            <button onClick={handleConfirmAddons} className="w-full py-4 bg-green-600 text-white rounded-xl font-bold text-xl hover:bg-green-700 shadow-lg">Confirmar e Adicionar</button>
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-200">
+                            <button onClick={handleConfirmAddons} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-lg hover:bg-green-700 shadow-lg">Adicionar</button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* 2. Client Search Modal */}
+            {/* 2. Client Search Modal - Responsive Size */}
             {checkoutStep === 'CLIENT_SEARCH' && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl p-0 flex flex-col max-h-[90vh] animate-in zoom-in duration-200">
-                        <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                            <h3 className="text-2xl font-bold text-gray-800">Selecionar Cliente</h3>
-                            <button onClick={() => setCheckoutStep('NONE')} className="p-2 hover:bg-gray-100 rounded-full"><X size={24}/></button>
+                    <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-0 flex flex-col max-h-[90vh] animate-in zoom-in duration-200">
+                        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800">Selecionar Cliente</h3>
+                            <button onClick={() => setCheckoutStep('NONE')} className="p-2 hover:bg-gray-100 rounded-full"><X size={20}/></button>
                         </div>
                         
-                        <div className="p-6 border-b border-gray-100 bg-gray-50">
+                        <div className="p-4 border-b border-gray-100 bg-gray-50">
                             <div className="relative">
-                                <Search className="absolute left-4 top-4 text-gray-400" size={24}/>
+                                <Search className="absolute left-4 top-3.5 text-gray-400" size={20}/>
                                 <input 
                                     type="text" 
                                     autoFocus
                                     value={clientSearchTerm}
                                     onChange={e => setClientSearchTerm(e.target.value)}
-                                    className="w-full pl-12 p-4 text-xl border-2 border-gray-300 rounded-xl focus:border-blue-500 outline-none font-medium"
+                                    className="w-full pl-12 p-3 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-500 outline-none font-medium"
                                     placeholder="Nome, Telefone ou CPF/CNPJ..."
                                 />
                             </div>
@@ -757,12 +762,11 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                         <div className="flex-1 overflow-y-auto p-4 space-y-2">
                             <div 
                                 onClick={() => handleSelectClient(null)}
-                                className="p-4 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer flex items-center gap-4 transition-all"
+                                className="p-3 rounded-xl border-2 border-dashed border-gray-300 hover:border-blue-500 hover:bg-blue-50 cursor-pointer flex items-center gap-3 transition-all"
                             >
-                                <div className="bg-gray-200 p-3 rounded-full text-gray-600"><UserPlus size={24}/></div>
+                                <div className="bg-gray-200 p-2 rounded-full text-gray-600"><UserPlus size={20}/></div>
                                 <div>
-                                    <div className="font-bold text-lg text-gray-800">Consumidor Final (Sem Cadastro)</div>
-                                    <div className="text-gray-500 text-sm">Seguir sem identificar cliente</div>
+                                    <div className="font-bold text-base text-gray-800">Consumidor Final (Sem Cadastro)</div>
                                 </div>
                             </div>
 
@@ -770,26 +774,26 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                 <div 
                                     key={client.id}
                                     onClick={() => handleSelectClient(client)}
-                                    className="p-4 rounded-xl border-2 border-gray-100 hover:border-blue-500 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-all"
+                                    className="p-3 rounded-xl border-2 border-gray-100 hover:border-blue-500 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-all"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="bg-blue-100 p-3 rounded-full text-blue-600 font-bold text-lg w-12 h-12 flex items-center justify-center">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-blue-100 p-2 rounded-full text-blue-600 font-bold text-lg w-10 h-10 flex items-center justify-center">
                                             {client.nome.charAt(0)}
                                         </div>
                                         <div>
-                                            <div className="font-bold text-lg text-gray-800">{client.nome}</div>
-                                            <div className="text-gray-500 text-sm flex gap-3">
+                                            <div className="font-bold text-base text-gray-800">{client.nome}</div>
+                                            <div className="text-gray-500 text-xs flex gap-2">
                                                 <span>{client.telefone}</span>
                                                 {client.cpfCnpj && <span>• {client.cpfCnpj}</span>}
                                             </div>
                                             {client.endereco && (
-                                                <div className="text-gray-400 text-xs mt-1">
+                                                <div className="text-gray-400 text-[10px] mt-0.5">
                                                     {client.endereco}, {client.numero} - {client.bairro}
                                                 </div>
                                             )}
                                         </div>
                                     </div>
-                                    <ChevronRight size={24} className="text-gray-300"/>
+                                    <ChevronRight size={20} className="text-gray-300"/>
                                 </div>
                             ))}
                         </div>
@@ -797,46 +801,47 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                 </div>
             )}
 
-            {/* 3. Payment Modal (ROBUST - Conditional Logic) */}
+            {/* 3. Payment Modal (ROBUST - Conditional Logic) - FIXED SIZING */}
             {checkoutStep === 'PAYMENT' && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl p-0 flex h-[80vh] overflow-hidden animate-in zoom-in duration-200">
+                    <div className="bg-white w-[95%] max-w-4xl rounded-2xl shadow-2xl p-0 flex flex-col md:flex-row h-auto max-h-[90vh] overflow-hidden animate-in zoom-in duration-200">
                         {/* LEFT: Payment Methods & Numpad */}
-                        <div className="flex-1 p-6 flex flex-col border-r border-gray-200 bg-gray-50">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-2xl font-bold text-gray-800">
-                                    {isDelivery ? 'Forma de Pagamento (Entrega)' : 'Pagamento'}
+                        <div className="flex-1 p-4 md:p-6 flex flex-col border-b md:border-b-0 md:border-r border-gray-200 bg-gray-50 overflow-y-auto">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-bold text-gray-800">
+                                    {isDelivery ? 'Forma Pagamento' : 'Pagamento'}
                                 </h3>
-                                <button onClick={() => setCheckoutStep('NONE')} className="text-gray-500 font-bold flex items-center gap-2"><ArrowLeft/> Voltar</button>
+                                <button onClick={() => setCheckoutStep('NONE')} className="text-gray-500 font-bold flex items-center gap-1 text-sm"><ArrowLeft size={16}/> Voltar</button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="grid grid-cols-2 gap-2 mb-4 shrink-0">
                                 {paymentMethods.map(method => (
                                     <button 
                                         key={method.id} 
+                                        type="button"
                                         onClick={() => setSelectedMethodId(method.id)}
-                                        className={`p-4 rounded-xl border-2 font-bold text-lg flex flex-col items-center gap-2 transition-all ${selectedMethodId === method.id ? 'border-blue-600 bg-blue-100 text-blue-800' : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'}`}
+                                        className={`p-3 rounded-lg border-2 font-bold text-sm flex flex-col items-center gap-1 transition-all ${selectedMethodId === method.id ? 'border-blue-600 bg-blue-100 text-blue-800' : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300'}`}
                                     >
-                                        <CreditCard size={24}/> {method.nome}
+                                        <CreditCard size={20}/> {method.nome}
                                     </button>
                                 ))}
                             </div>
 
-                            {/* Numpad Area */}
-                            <div className="flex-1 flex flex-col justify-end">
+                            {/* Numpad Area - Flexible Height */}
+                            <div className="flex-1 flex flex-col justify-end min-h-[300px]">
                                 <div className="mb-2 text-right">
-                                    <span className="text-sm text-gray-500 font-bold uppercase mr-2">
+                                    <span className="text-xs text-gray-500 font-bold uppercase mr-2">
                                         {isDelivery 
                                             ? (isCashSelected ? "Troco para:" : "Valor Total:") 
                                             : "Valor a Pagar:"}
                                     </span>
-                                    <div className="text-4xl font-mono font-bold bg-white border border-gray-300 rounded-lg p-3 text-right text-gray-800">
+                                    <div className="text-3xl font-mono font-bold bg-white border border-gray-300 rounded-lg p-2 text-right text-gray-800">
                                         {numpadValue 
                                             ? parseFloat(numpadValue.replace(',','.')).toFixed(2) 
                                             : (isDelivery && !isCashSelected ? cartTotal.toFixed(2) : remaining.toFixed(2))}
                                     </div>
                                     {isDelivery && isCashSelected && (
-                                        <div className="text-xs text-red-500 text-right font-bold mt-1">
+                                        <div className="text-xs text-red-500 text-right font-bold mt-1 h-4">
                                             {numpadValue && parseFloat(numpadValue.replace(',','.')) > 0 
                                                 ? `Troco a devolver: R$ ${(parseFloat(numpadValue.replace(',','.')) - cartTotal).toFixed(2)}`
                                                 : "Informe quanto o cliente vai entregar"}
@@ -845,13 +850,13 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                 </div>
                                 
                                 {(!isDelivery || isCashSelected) && (
-                                    <div className="grid grid-cols-3 gap-3 h-64">
+                                    <div className="flex-1 grid grid-cols-3 gap-2">
                                         {[1,2,3,4,5,6,7,8,9,'.',0,'back'].map((key) => (
                                             <button 
                                                 key={key}
                                                 type="button"
                                                 onClick={() => handleNumpadClick(key.toString())}
-                                                className="bg-white border border-gray-300 rounded-xl text-2xl font-bold text-gray-700 shadow-sm active:bg-gray-200 flex items-center justify-center select-none active:scale-95 transition-transform"
+                                                className="bg-white border border-gray-300 rounded-lg text-xl font-bold text-gray-700 shadow-sm active:bg-gray-200 flex items-center justify-center select-none active:scale-95 transition-transform h-full min-h-[50px]"
                                             >
                                                 {key === 'back' ? <ArrowLeft/> : key}
                                             </button>
@@ -859,15 +864,15 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                     </div>
                                 )}
                                 
-                                <div className="mt-4 grid grid-cols-2 gap-3">
-                                    <button type="button" onClick={() => { setNumpadValue(''); setSelectedMethodId(null); }} className="py-3 bg-gray-200 rounded-xl font-bold text-gray-700">Limpar</button>
+                                <div className="mt-3 grid grid-cols-2 gap-2 h-12 shrink-0">
+                                    <button type="button" onClick={() => { setNumpadValue(''); setSelectedMethodId(null); }} className="bg-gray-200 rounded-lg font-bold text-gray-700 text-sm">Limpar</button>
                                     <button 
                                         type="button"
                                         onClick={handleAddPayment} 
                                         disabled={!selectedMethodId} 
-                                        className={`py-3 rounded-xl font-bold text-white shadow-md ${selectedMethodId ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                                        className={`rounded-lg font-bold text-white shadow-md text-sm ${selectedMethodId ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
                                     >
-                                        {isDelivery ? "Confirmar e Enviar" : "Adicionar Pagamento"}
+                                        {isDelivery ? "Confirmar" : "Adicionar"}
                                     </button>
                                 </div>
                             </div>
@@ -875,26 +880,26 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
 
                         {/* RIGHT: Summary & Confirm (Hidden logic for Delivery) */}
                         {!isDelivery && (
-                            <div className="w-[400px] p-6 flex flex-col bg-white">
-                                <div className="mb-6 pb-6 border-b border-gray-100">
-                                    <p className="text-sm font-bold text-gray-500 uppercase">Total do Pedido</p>
-                                    <p className="text-5xl font-extrabold text-blue-600">R$ {cartTotal.toFixed(2)}</p>
+                            <div className="w-full md:w-80 p-4 md:p-6 flex flex-col bg-white shrink-0">
+                                <div className="mb-4 pb-4 border-b border-gray-100">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Total do Pedido</p>
+                                    <p className="text-4xl font-extrabold text-blue-600">R$ {cartTotal.toFixed(2)}</p>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto mb-6">
-                                    <p className="text-xs font-bold text-gray-400 uppercase mb-2">Pagamentos Adicionados</p>
+                                <div className="flex-1 overflow-y-auto mb-4 min-h-[100px]">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">Pagamentos</p>
                                     {currentPayments.length === 0 ? (
-                                        <div className="text-center text-gray-400 py-10 italic">Nenhum pagamento registrado</div>
+                                        <div className="text-center text-gray-400 py-4 italic text-sm">Nenhum pagamento</div>
                                     ) : (
                                         <div className="space-y-2">
                                             {currentPayments.map((p, idx) => (
-                                                <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                                <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-100 text-sm">
                                                     <div>
                                                         <div className="font-bold text-gray-800">{p.methodName}</div>
                                                     </div>
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2">
                                                         <span className="font-bold">R$ {p.value.toFixed(2)}</span>
-                                                        <button onClick={() => handleRemovePayment(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={18}/></button>
+                                                        <button onClick={() => handleRemovePayment(idx)} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -903,17 +908,17 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                 </div>
 
                                 <div className="mt-auto">
-                                    <div className="space-y-2 mb-6">
-                                        <div className="flex justify-between text-lg">
+                                    <div className="space-y-1 mb-4 text-sm">
+                                        <div className="flex justify-between">
                                             <span className="text-gray-600">Pago</span>
                                             <span className="font-bold text-green-600">R$ {totalPaid.toFixed(2)}</span>
                                         </div>
-                                        <div className="flex justify-between text-lg border-t border-gray-100 pt-2">
+                                        <div className="flex justify-between border-t border-gray-100 pt-1">
                                             <span className="text-gray-600">Restante</span>
                                             <span className={`font-bold ${remaining === 0 ? 'text-gray-400' : 'text-red-600'}`}>R$ {remaining.toFixed(2)}</span>
                                         </div>
                                         {changeAmount > 0 && (
-                                            <div className="flex justify-between text-xl bg-yellow-50 p-2 rounded-lg border border-yellow-200 mt-2">
+                                            <div className="flex justify-between bg-yellow-50 p-1.5 rounded border border-yellow-200 mt-2">
                                                 <span className="text-yellow-800 font-bold">TROCO</span>
                                                 <span className="font-bold text-yellow-800">R$ {changeAmount.toFixed(2)}</span>
                                             </div>
@@ -923,30 +928,30 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                     <button 
                                         onClick={handleFinalizeOrder}
                                         disabled={remaining > 0.01}
-                                        className={`w-full py-4 rounded-xl font-bold text-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
+                                        className={`w-full py-3 rounded-xl font-bold text-lg shadow-lg transition-all flex items-center justify-center gap-2 ${
                                             remaining <= 0.01 
                                             ? 'bg-blue-600 text-white hover:bg-blue-700 animate-pulse' 
                                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                         }`}
                                     >
-                                        <CheckCircle size={24}/> Finalizar Venda
+                                        <CheckCircle size={20}/> Finalizar
                                     </button>
                                 </div>
                             </div>
                         )}
                         
                         {isDelivery && (
-                            <div className="w-[400px] p-6 flex flex-col bg-white justify-center items-center text-center">
-                                <div className="bg-blue-50 p-6 rounded-full mb-4">
-                                    <Truck size={64} className="text-blue-600"/>
+                            <div className="w-full md:w-80 p-6 flex flex-col bg-white justify-center items-center text-center shrink-0">
+                                <div className="bg-blue-50 p-4 rounded-full mb-4">
+                                    <Truck size={48} className="text-blue-600"/>
                                 </div>
-                                <h3 className="text-2xl font-bold text-gray-800 mb-2">Modo Delivery</h3>
-                                <p className="text-gray-500 mb-8">
+                                <h3 className="text-xl font-bold text-gray-800 mb-2">Modo Delivery</h3>
+                                <p className="text-gray-500 text-sm mb-6">
                                     Neste modo, o pagamento não é processado agora. 
-                                    <br/>Apenas informe como o cliente irá pagar para orientar o entregador.
+                                    <br/>Informe a forma de pagamento prevista.
                                 </p>
-                                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-                                    O pedido ficará como <b>PENDENTE</b> até o retorno do entregador.
+                                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
+                                    O pedido ficará como <b>PENDENTE</b>.
                                 </div>
                             </div>
                         )}
