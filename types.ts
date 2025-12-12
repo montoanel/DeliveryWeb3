@@ -245,6 +245,10 @@ export interface Pedido {
   
   cpfNaNota?: string; // Novo campo para o módulo Totem
   
+  // Delivery Specific Metadata (Not financial, just info)
+  deliveryPagamentoMetodo?: string; 
+  deliveryTrocoPara?: number;
+
   // Legacy fields kept optional for backward compatibility types, but logic moves to 'pagamentos'
   valorRecebido?: number; 
   troco?: number;
