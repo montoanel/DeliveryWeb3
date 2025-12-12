@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Produto, PedidoItem, Cliente, TipoAtendimento, PedidoStatus, Pedido, FormaPagamento, ConfiguracaoAdicional, PedidoItemAdicional, Pagamento, Usuario, Bairro, StatusCozinha } from '../types';
@@ -24,6 +25,10 @@ interface PrintableData {
     total: number;
     payments: Pagamento[];
     obs?: string;
+    deliveryPaymentInfo?: {
+        method: string;
+        changeTo?: number;
+    };
 }
 
 const PrintableReceipt = ({ data }: { data: PrintableData | null }) => {
@@ -117,19 +122,40 @@ const PrintableReceipt = ({ data }: { data: PrintableData | null }) => {
                         <span>R$ {data.total.toFixed(2)}</span>
                     </div>
 
-                    <div className="border-t border-dashed border-black pt-2 mb-4">
-                        <p className="font-bold text-xs uppercase mb-1">Pagamentos</p>
-                        {data.payments.length > 0 ? (
-                            data.payments.map((p, i) => (
+                    {/* Standard Payments */}
+                    {data.payments.length > 0 && (
+                        <div className="border-t border-dashed border-black pt-2 mb-4">
+                            <p className="font-bold text-xs uppercase mb-1">Pagamentos</p>
+                            {data.payments.map((p, i) => (
                                 <div key={i} className="flex justify-between text-xs">
                                     <span>{p.formaPagamentoNome}</span>
                                     <span>R$ {p.valor.toFixed(2)}</span>
                                 </div>
-                            ))
-                        ) : (
-                            <p className="text-xs italic">Nenhum pagamento registrado.</p>
-                        )}
-                    </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Delivery Info Box */}
+                    {data.deliveryPaymentInfo && (
+                        <div className="border-2 border-black p-2 bg-gray-50 mt-2 mb-4">
+                            <p className="font-bold text-center uppercase border-b border-black mb-1">A COBRAR NA ENTREGA</p>
+                            <div className="flex justify-between text-sm mt-1">
+                                <span>Forma:</span>
+                                <span className="font-bold">{data.deliveryPaymentInfo.method}</span>
+                            </div>
+                            {data.deliveryPaymentInfo.changeTo && data.deliveryPaymentInfo.changeTo > 0 && (
+                                <>
+                                <div className="flex justify-between text-sm font-bold mt-1">
+                                    <span>LEVAR TROCO P/:</span>
+                                    <span>R$ {data.deliveryPaymentInfo.changeTo.toFixed(2)}</span>
+                                </div>
+                                <div className="text-center text-xs mt-1">
+                                    (Troco: R$ {(data.deliveryPaymentInfo.changeTo - data.total).toFixed(2)})
+                                </div>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
             
@@ -352,10 +378,6 @@ const POS: React.FC<POSProps> = ({ user }) => {
     // Separate items into two groups: Premium (Always Paid) and Standard (Count towards free limit)
     let standardItemsCount = 0;
     
-    // Reconstruct list of selected items based on quantities, prioritizing premium status if needed?
-    // Actually, we just need to process them.
-    // Iterating the config order ensures deterministic processing (e.g. menu order)
-    
     const itemsToProcess: {product: Produto, rule: any}[] = [];
 
     config.itens.forEach(rule => {
@@ -462,7 +484,35 @@ const POS: React.FC<POSProps> = ({ user }) => {
           items: cart,
           total: calculateCartTotal(),
           payments: existingPayments,
-          obs: observation
+          obs: observation,
+          // If printing from Edit Mode, we don't have easy access to the metadata stored in DB unless we re-fetch or pass it down.
+          // But for "NEW" orders it's empty. For Existing orders, let's try to get from orders state if available.
+          deliveryPaymentInfo: editingOrderId ? orders.find(o => o.id === editingOrderId)?.deliveryPagamentoMetodo ? {
+              method: orders.find(o => o.id === editingOrderId)!.deliveryPagamentoMetodo!,
+              changeTo: orders.find(o => o.id === editingOrderId)!.deliveryTrocoPara
+          } : undefined : undefined
+      });
+  };
+
+  const handlePrintDeliveryTicket = (e: React.MouseEvent, order: Pedido) => {
+      e.stopPropagation(); // Stop row click
+      const client = availableClients.find(c => c.id === order.clienteId);
+      const address = client ? `${client.endereco}, ${client.numero} - ${client.bairro}` : (order.clienteNome ? 'Endereço no cadastro' : '');
+      
+      setPrintData({
+          type: 'ORDER',
+          orderId: order.id,
+          date: order.data,
+          clientName: order.clienteNome || 'Consumidor',
+          clientAddress: address,
+          deliveryType: 'Delivery',
+          items: order.itens,
+          total: order.total,
+          payments: order.pagamentos,
+          deliveryPaymentInfo: order.deliveryPagamentoMetodo ? {
+              method: order.deliveryPagamentoMetodo,
+              changeTo: order.deliveryTrocoPara
+          } : undefined
       });
   };
 
@@ -1020,6 +1070,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
       {/* ... Rest of existing JSX logic (no changes needed in layout, just state handling above) ... */}
       {view === 'list' ? (
         <div className="space-y-6">
+          {/* ... Header Buttons ... */}
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
             <h2 className="text-sm font-semibold text-gray-500 uppercase mb-4 tracking-wider">Novo Atendimento</h2>
             <div className="flex flex-wrap gap-4">
@@ -1074,6 +1125,7 @@ const POS: React.FC<POSProps> = ({ user }) => {
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase">Produção</th>
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase text-right">Total (R$)</th>
                   <th className="p-3 text-xs font-bold text-gray-600 uppercase text-center">Status</th>
+                  <th className="p-3 text-xs font-bold text-gray-600 uppercase text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1104,11 +1156,22 @@ const POS: React.FC<POSProps> = ({ user }) => {
                         {order.status}
                       </span>
                     </td>
+                    <td className="p-3 text-center">
+                        {order.tipoAtendimento === 'Delivery' && (
+                            <button 
+                                onClick={(e) => handlePrintDeliveryTicket(e, order)}
+                                className="bg-gray-800 text-white p-2 rounded hover:bg-gray-700 shadow-sm"
+                                title="Imprimir Ordem de Entrega"
+                            >
+                                <Printer size={16} />
+                            </button>
+                        )}
+                    </td>
                   </tr>
                 )})}
                 {ordersListFiltered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="p-10 text-center text-gray-400">Nenhum atendimento encontrado com este filtro.</td>
+                    <td colSpan={8} className="p-10 text-center text-gray-400">Nenhum atendimento encontrado com este filtro.</td>
                   </tr>
                 )}
               </tbody>
@@ -1116,7 +1179,11 @@ const POS: React.FC<POSProps> = ({ user }) => {
           </div>
         </div>
       ) : (
+        // ... The Form Render ...
         <div className="flex flex-col h-[calc(100vh-7rem)] bg-gray-100 -m-6 p-4 relative">
+          {/* ... Addon Modal, Product Modal, Client Modal, Payment Modal and Header ... */}
+          {/* Re-use existing modal logic blocks from previous artifact, ensuring they use the updated state handlers */}
+          
           {/* Addon Modal */}
           {isAddonModalOpen && pendingAddonProduct && (
             <div className="absolute inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">

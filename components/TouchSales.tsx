@@ -317,9 +317,13 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
             let trocoPara = 0;
             
             if (isCash) {
-                trocoPara = parseFloat(numpadValue || '0');
+                // Replace comma if present (phys keyboard)
+                const sanitized = numpadValue.replace(',', '.');
+                trocoPara = parseFloat(sanitized || '0');
+                
+                // If user typed something, check it. If empty, it's exact change (0) which is valid logic or we can treat as "Don't know"
                 if (trocoPara > 0 && trocoPara < cartTotal) {
-                    alert("O valor para troco deve ser maior que o total do pedido.");
+                    alert(`O valor para troco (R$ ${trocoPara.toFixed(2)}) não pode ser menor que o total (R$ ${cartTotal.toFixed(2)}).`);
                     return;
                 }
             }
@@ -375,7 +379,7 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
             return;
         }
         
-        let value = parseFloat(numpadValue);
+        let value = parseFloat(numpadValue.replace(',', '.') || '0');
 
         if (!numpadValue || isNaN(value) || value <= 0) {
             value = remaining;
@@ -677,7 +681,7 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                 </div>
             </div>
 
-            {/* ... Modals 1 & 2 (Addon & Client) skipped for brevity, same as previous ... */}
+            {/* ... Modals 1 & 2 (Addon & Client) ... */}
             
             {/* 1. Addon Modal */}
             {addonModalData && (
@@ -828,13 +832,13 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                     </span>
                                     <div className="text-4xl font-mono font-bold bg-white border border-gray-300 rounded-lg p-3 text-right text-gray-800">
                                         {numpadValue 
-                                            ? parseFloat(numpadValue).toFixed(2) 
+                                            ? parseFloat(numpadValue.replace(',','.')).toFixed(2) 
                                             : (isDelivery && !isCashSelected ? cartTotal.toFixed(2) : remaining.toFixed(2))}
                                     </div>
                                     {isDelivery && isCashSelected && (
                                         <div className="text-xs text-red-500 text-right font-bold mt-1">
-                                            {numpadValue && parseFloat(numpadValue) > 0 
-                                                ? `Troco a devolver: R$ ${(parseFloat(numpadValue) - cartTotal).toFixed(2)}`
+                                            {numpadValue && parseFloat(numpadValue.replace(',','.')) > 0 
+                                                ? `Troco a devolver: R$ ${(parseFloat(numpadValue.replace(',','.')) - cartTotal).toFixed(2)}`
                                                 : "Informe quanto o cliente vai entregar"}
                                         </div>
                                     )}
@@ -845,8 +849,9 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                         {[1,2,3,4,5,6,7,8,9,'.',0,'back'].map((key) => (
                                             <button 
                                                 key={key}
+                                                type="button"
                                                 onClick={() => handleNumpadClick(key.toString())}
-                                                className="bg-white border border-gray-300 rounded-xl text-2xl font-bold text-gray-700 shadow-sm active:bg-gray-200 flex items-center justify-center"
+                                                className="bg-white border border-gray-300 rounded-xl text-2xl font-bold text-gray-700 shadow-sm active:bg-gray-200 flex items-center justify-center select-none active:scale-95 transition-transform"
                                             >
                                                 {key === 'back' ? <ArrowLeft/> : key}
                                             </button>
@@ -855,8 +860,9 @@ const TouchSales: React.FC<TouchSalesProps> = ({ user }) => {
                                 )}
                                 
                                 <div className="mt-4 grid grid-cols-2 gap-3">
-                                    <button onClick={() => { setNumpadValue(''); setSelectedMethodId(null); }} className="py-3 bg-gray-200 rounded-xl font-bold text-gray-700">Limpar</button>
+                                    <button type="button" onClick={() => { setNumpadValue(''); setSelectedMethodId(null); }} className="py-3 bg-gray-200 rounded-xl font-bold text-gray-700">Limpar</button>
                                     <button 
+                                        type="button"
                                         onClick={handleAddPayment} 
                                         disabled={!selectedMethodId} 
                                         className={`py-3 rounded-xl font-bold text-white shadow-md ${selectedMethodId ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}
